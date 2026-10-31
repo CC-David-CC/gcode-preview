@@ -1,6 +1,6 @@
 import {CodiParser} from 'gcode-preview';
 import {expandLinearModal} from './modal.mjs';
-import {normalizeArc} from './arcs.mjs';
+import {normalizeArc,arcSegmentCount} from './arcs.mjs';
 self.onmessage=({data})=>{
  try{
   const code=new TextDecoder('utf-8',{fatal:true}).decode(data.bytes);
@@ -12,7 +12,7 @@ self.onmessage=({data})=>{
   // The renderer treats a positive E parameter as deposition. Convert absolute
   // E coordinates to deltas, and honor explicit relative E and G92 E resets.
   // This only classifies paths; it does not simulate the extruder or material.
-  let relative=false,relativeXYZ=false,hadMoves=false,tool=0,x=0,y=0,z=0,units=1,offsetX=0,offsetY=0,offsetZ=0;const positions=new Map([[0,0]]);
+  let relative=false,relativeXYZ=false,hadMoves=false,tool=0,x=0,y=0,z=0,units=1,offsetX=0,offsetY=0,offsetZ=0,arcSegments=0;const positions=new Map([[0,0]]);
   const finite=value=>{if(!Number.isFinite(value))throw Error('A coordinate is outside the supported range. The current view is unchanged.');return value;};
   for(const command of commands){
    if((command.src.split(';',1)[0].match(/[GMT]\s*\d+(?:\.\d+)?/gi)||[]).length>1)throw Error('Multiple commands on one line are not supported. The current view is unchanged.');
@@ -27,7 +27,7 @@ self.onmessage=({data})=>{
    for(const axis of ['x','y','z','e','i','j','r','f'])if(command.params[axis]!==undefined){if(!Number.isFinite(command.params[axis]))throw Error('A move contains an invalid coordinate. The current view is unchanged.');command.params[axis]=finite(command.params[axis]*units);}
    const nextX=command.params.x===undefined?x:relativeXYZ?x+command.params.x:command.params.x+offsetX,nextY=command.params.y===undefined?y:relativeXYZ?y+command.params.y:command.params.y+offsetY,nextZ=command.params.z===undefined?z:relativeXYZ?z+command.params.z:command.params.z+offsetZ;
    finite(nextX);finite(nextY);finite(nextZ);if(command.params.x!==undefined)command.params.x=nextX;if(command.params.y!==undefined)command.params.y=nextY;if(command.params.z!==undefined)command.params.z=nextZ;
-   if(/^g0?[23]$/.test(op))normalizeArc(command.params,{x,y},{x:nextX,y:nextY},/^g0?2$/.test(op));
+   if(/^g0?[23]$/.test(op)){const start={x,y},end={x:nextX,y:nextY},clockwise=/^g0?2$/.test(op);normalizeArc(command.params,start,end,clockwise);arcSegments+=arcSegmentCount(command.params,start,end,clockwise);if(arcSegments>200000)throw Error('This file has too much arc geometry to preview on this device. The current view is unchanged.');}
    x=nextX;y=nextY;z=nextZ;if(!Number.isFinite(command.params.e))continue;
    const value=command.params.e,previous=positions.get(tool)??0,delta=relative?value:value-previous;
    positions.set(tool,finite(relative?previous+value:value));command.params.e=finite(delta);

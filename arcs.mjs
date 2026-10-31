@@ -19,3 +19,12 @@ export function normalizeArc(params,start,end,clockwise){
  }else if((!hasI&&!hasJ)||Math.hypot(params.i??0,params.j??0)===0)fail('An arc needs a nonzero I or J center offset.');
  return params;
 }
+
+// Match the renderer's arc subdivision before it allocates geometry on the UI
+// thread. The worker applies a cumulative limit across the entire file.
+export function arcSegmentCount(params,start,end,clockwise){
+ const i=params.i??0,j=params.j??0,radius=Math.sqrt(i*i+j*j),cx=start.x+i,cy=start.y+j;
+ if(!Number.isFinite(radius)||!Number.isFinite(cx)||!Number.isFinite(cy)||!Number.isFinite(end.x-cx)||!Number.isFinite(end.y-cy))throw Error('An arc is outside the supported coordinate range. The current view is unchanged.');
+ const from=Math.atan2(-j,-i),to=Math.atan2(end.y-cy,end.x-cx);let sweep=clockwise?from-to:to-from;if(sweep<0)sweep+=2*Math.PI;
+ const segments=Math.ceil(Math.max(1,radius*sweep/1.8));if(!Number.isSafeInteger(segments))throw Error('Arc geometry is too large to preview. The current view is unchanged.');return segments;
+}
