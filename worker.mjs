@@ -1,5 +1,6 @@
 import {CodiParser} from 'gcode-preview';
 import {expandLinearModal} from './modal.mjs';
+import {normalizeArc} from './arcs.mjs';
 self.onmessage=({data})=>{
  try{
   const code=new TextDecoder('utf-8',{fatal:true}).decode(data.bytes);
@@ -26,7 +27,7 @@ self.onmessage=({data})=>{
    for(const axis of ['x','y','z','e','i','j','r','f'])if(command.params[axis]!==undefined){if(!Number.isFinite(command.params[axis]))throw Error('A move contains an invalid coordinate. The current view is unchanged.');command.params[axis]=finite(command.params[axis]*units);}
    const nextX=command.params.x===undefined?x:relativeXYZ?x+command.params.x:command.params.x+offsetX,nextY=command.params.y===undefined?y:relativeXYZ?y+command.params.y:command.params.y+offsetY,nextZ=command.params.z===undefined?z:relativeXYZ?z+command.params.z:command.params.z+offsetZ;
    finite(nextX);finite(nextY);finite(nextZ);if(command.params.x!==undefined)command.params.x=nextX;if(command.params.y!==undefined)command.params.y=nextY;if(command.params.z!==undefined)command.params.z=nextZ;
-   if(/^g0?[23]$/.test(op)&&nextX===x&&nextY===y&&nextZ===z)throw Error('A full-circle arc cannot be shown reliably. The current view is unchanged.');
+   if(/^g0?[23]$/.test(op))normalizeArc(command.params,{x,y},{x:nextX,y:nextY},/^g0?2$/.test(op));
    x=nextX;y=nextY;z=nextZ;if(!Number.isFinite(command.params.e))continue;
    const value=command.params.e,previous=positions.get(tool)??0,delta=relative?value:value-previous;
    positions.set(tool,finite(relative?previous+value:value));command.params.e=finite(delta);
