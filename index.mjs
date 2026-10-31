@@ -21,7 +21,7 @@ export function mount(host) {
   const path=appInput('G-code file path',w.launchContext?.path||'/'),stage=make('div','gcode-stage'),status=make('div','app-status');
   const travel=document.createElement('input');travel.type='checkbox';travel.checked=true;
   const travelLabel=make('label','gcode-travel');travelLabel.append(travel,document.createTextNode(' Show non-extruding moves'));
-  intro.textContent='Inspect a toolpath in your browser. This is a visual preview, not a machine or safety check; it does not connect to a printer or CNC machine. G90/G91 control XYZ; M82/M83 control extrusion in this preview.';
+  intro.textContent='Inspect a toolpath in your browser. This is a visual preview, not a machine or safety check; it does not connect to a printer or CNC machine. The preview starts at zero with millimeter units unless the file changes them; stored machine offsets and homing movement are not modeled. G90/G91 control XYZ; M82/M83 control extrusion.';
   let disposed=false,preview=null,canvas=null,observer,busy=false,operation=0,parseWorker=null,cancelParse=null;
   const valid=()=>!disposed&&!host.signal.aborted&&body.isConnected&&owner===signedInSubject();
   const tell=t=>{if(valid())status.textContent=t;};
