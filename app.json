@@ -1,0 +1,9 @@
+{
+  "workers": {"parse":"worker.mjs"},
+  "patches": [{
+    "path":"node_modules/gcode-preview/dist/gcode-preview.es.js",
+    "sha256":"37afed0e0deeb0bc8748921e5ad7fd39cd759c4b5c125d72a56ce2b5b15eb6be",
+    "find":"export{_t as WebGLPreview,jt as init};",
+    "replace":"export{X as CodiParser,_t as WebGLPreview,jt as init};"
+  }]
+}
