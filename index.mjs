@@ -19,12 +19,19 @@ export function mount(host) {
   w.ownerSub=owner;
   const body=make('div','window-content gcode-app'),intro=make('p','gcode-intro'),bar=make('div','gcode-bar');
   const path=appInput('G-code file path',w.launchContext?.path||'/'),stage=make('div','gcode-stage'),status=make('div','app-status');
+  const notice=make('p','gcode-file-notice');notice.hidden=true;notice.setAttribute('role','status');
   const travel=document.createElement('input');travel.type='checkbox';travel.checked=true;
   const travelLabel=make('label','gcode-travel');travelLabel.append(travel,document.createTextNode(' Show non-extruding moves'));
   intro.textContent='Inspect a toolpath in your browser. This is a visual preview, not a machine or safety check; it does not connect to a printer or CNC machine. The preview starts at zero with millimeter units unless the file changes them; stored machine offsets and homing movement are not modeled. G90/G91 control XYZ; M82/M83 control extrusion.';
-  let disposed=false,preview=null,canvas=null,observer,busy=false,operation=0,parseWorker=null,cancelParse=null;
+  let disposed=false,preview=null,canvas=null,observer,busy=false,operation=0,parseWorker=null,cancelParse=null,currentPath=null,unsubscribe=()=>{},watchRevision=0,checkRevision=0;
   const valid=()=>!disposed&&!host.signal.aborted&&body.isConnected&&owner===signedInSubject();
   const tell=t=>{if(valid())status.textContent=t;};
+  function clearWatch(){watchRevision++;checkRevision++;unsubscribe();unsubscribe=()=>{};currentPath=null;notice.textContent='';notice.hidden=true;reloadButton.disabled=true;}
+  function watchFile(c,p,file){
+    clearWatch();currentPath=p;reloadButton.disabled=false;const watch=watchRevision;
+    const check=async()=>{const checkId=++checkRevision;let warning='';try{const now=await c.files.stat(p);warning=now.status==='conflict'?'This file has conflicting copies. Resolve them in Files.':(file.sha256&&now.sha256?file.sha256!==now.sha256:file.version!==now.version)?'This file changed. Select Reload to see the latest copy.':'';}catch(e){warning=e.message==='File not found.'?'This file is no longer available in My files.':'Could not check this file. The current preview remains open.';}if(!valid()||!c.valid()||watch!==watchRevision||checkId!==checkRevision)return;notice.textContent=warning;notice.hidden=!warning;};
+    unsubscribe=c.files.subscribe(check);void check();
+  }
   function parse(bytes,token){
     return new Promise((resolve,reject)=>{
       const worker=new Worker(new URL('./workers/parse.mjs',import.meta.url),{type:'module'});parseWorker=worker;cancelButton.disabled=false;let done=false;
@@ -57,8 +64,13 @@ export function mount(host) {
       if(f.status==='conflict')throw Error('Resolve the file conflict in Files first.');
       if(f.data.length>128*1024*1024)throw Error('G-code files are limited to 128 MiB.');
       if(!valid()||!c.valid()||token!==operation)return;
-      await show(f.data,p.split('/').pop(),token);if(valid()&&token===operation)path.value=p;
+      await show(f.data,p.split('/').pop(),token);if(valid()&&c.valid()&&token===operation){path.value=p;w.launchContext=Object.freeze({version:1,storage:'mirror',path:p,owner});watchFile(c,p,f);}
     }catch(e){tell('Could not preview G-code: '+e.message);}finally{busy=false;}
+  }
+  async function reload(){
+    if(busy||!valid()||!currentPath)return;const target=currentPath;busy=true;let ready=false;
+    try{tell('Checking the server for updates…');const c=await mirrorFileContext();await c.files.sync();ready=valid()&&c.valid()&&target===currentPath;}catch(e){tell('Could not check the server. The current preview remains open: '+e.message);}finally{busy=false;}
+    if(ready)await open(target);
   }
   async function browse(){
     if(busy||!valid())return;
@@ -68,9 +80,10 @@ export function mount(host) {
   const location=document.createElement('details'),summary=make('summary','','File path'),pathBar=make('div','gcode-bar');
   pathBar.append(path,textButton('Open path',()=>open()));location.append(summary,pathBar);
   const cancelButton=textButton('Cancel parsing',()=>cancelParse?.());cancelButton.disabled=true;
-  bar.append(textButton('Open from My files',browse),cancelButton,textButton('Try example',async()=>{if(busy||!valid())return;busy=true;const token=++operation;try{await show(new TextEncoder().encode(EXAMPLE),'Example',token);}catch(e){tell('Could not preview example: '+e.message);}finally{busy=false;}}),textButton('Files',()=>desktop.launch('files')),travelLabel);
-  body.append(intro,bar,location,stage,status);tell('Open a file from My files, or try the example. Upload from your computer in Files.');
+  const reloadButton=textButton('Reload',reload);reloadButton.disabled=true;
+  bar.append(textButton('Open from My files',browse),reloadButton,cancelButton,textButton('Try example',async()=>{if(busy||!valid())return;busy=true;const token=++operation;try{await show(new TextEncoder().encode(EXAMPLE),'Example',token);if(valid()&&token===operation){clearWatch();w.launchContext=null;}}catch(e){tell('Could not preview example: '+e.message);}finally{busy=false;}}),textButton('Files',()=>desktop.launch('files')),travelLabel);
+  body.append(intro,bar,location,notice,stage,status);tell('Open a file from My files, or try the example. Upload from your computer in Files.');
   observer=new ResizeObserver(()=>{if(preview&&valid())preview.resize();});observer.observe(stage);
   if(w.launchContext?.storage==='mirror'&&w.launchContext.owner===owner)queueMicrotask(()=>open(w.launchContext.path));
-  return {element:body,dispose(){if(disposed)return;disposed=true;operation++;cancelParse?.();parseWorker?.terminate();observer.disconnect();preview?.dispose();canvas?.remove();}};
+  return {element:body,dispose(){if(disposed)return;disposed=true;operation++;clearWatch();cancelParse?.();parseWorker?.terminate();observer.disconnect();preview?.dispose();canvas?.remove();}};
 }
