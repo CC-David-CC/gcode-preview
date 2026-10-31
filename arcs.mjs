@@ -17,6 +17,12 @@ export function normalizeArc(params,start,end,clockwise){
   if(!Number.isFinite(params.i)||!Number.isFinite(params.j))fail('An arc is outside the supported coordinate range.');
   delete params.r;
  }else if((!hasI&&!hasJ)||Math.hypot(params.i??0,params.j??0)===0)fail('An arc needs a nonzero I or J center offset.');
+ // Allow small coordinate rounding, but do not draw an arc whose specified
+ // center gives materially different start and end radii. This is the
+ // viewer's tolerance in millimetres, not a controller-acceptance rule.
+ const i=params.i??0,j=params.j??0,startRadius=Math.hypot(i,j),endRadius=Math.hypot(dx-i,dy-j);
+ if(!Number.isFinite(startRadius)||!Number.isFinite(endRadius))fail('An arc is outside the supported coordinate range.');
+ if(Math.abs(startRadius-endRadius)>Math.max(0.01,startRadius*0.001))fail('Arc center does not match its endpoint.');
  return params;
 }
 
