@@ -74,3 +74,8 @@ parser still rejects unsupported commands and keeps the previous preview. Local
 desktop and emulated-phone account tests cover those names, uppercase `.NGC`,
 a rejected coordinate-system command, and fresh-session reopening. Physical
 touch, other dialects, and machine execution are unverified.
+
+[Marlin repeat markers and macros](https://marlinfw.org/docs/gcode/)
+(`M808`, `M810`–`M819`) and common [LinuxCNC subprogram control](https://www.linuxcnc.org/docs/master/html/en/gcode/o-code.html)
+(`M98`, `M99` and O-code) are rejected instead of drawing each source line as if it ran once. They are not
+simulated. This is still not a complete interpreter or machine-safety check.
