@@ -18,7 +18,8 @@ export function mount(host) {
   const owner=w.launchContext?.owner||signedInSubject();
   w.ownerSub=owner;
   const body=make('div','window-content gcode-app'),intro=make('p','gcode-intro'),limits=document.createElement('details'),limitsSummary=make('summary','','Preview limits'),limitsText=make('p','gcode-limits'),bar=make('div','gcode-bar');
-  const path=appInput('G-code file path',w.launchContext?.path||'/'),stage=make('div','gcode-stage'),status=make('div','app-status');
+  const path=appInput('G-code file path',w.launchContext?.path||'/'),stage=make('div','gcode-stage'),sourceLabel=make('div','gcode-source','No toolpath open'),status=make('div','app-status');
+  sourceLabel.setAttribute('aria-live','polite');stage.append(sourceLabel);
   const notice=make('p','gcode-file-notice');notice.hidden=true;notice.setAttribute('role','status');
   const travel=document.createElement('input');travel.type='checkbox';travel.checked=true;
   const travelLabel=make('label','gcode-travel');travelLabel.append(travel,document.createTextNode(' Show travel (orange)'));
@@ -53,6 +54,7 @@ export function mount(host) {
       next.parser.preamble=parsed.preamble;next.parser.layers=parsed.layers;next.parser.metadata=parsed.metadata;next.render();next.resize();
       if(!valid()||token!==operation)throw Error('Window closed.');
       const previous=preview,old=canvas;preview=next;canvas=candidate;next=null;candidate.classList.remove('gcode-candidate');previous?.dispose();old?.remove();
+      sourceLabel.textContent='Showing: '+source;sourceLabel.title=source;
       tell(source+' loaded. Grid is illustrative; drag to rotate, pinch or scroll to zoom.');
     }catch(e){next?.dispose();candidate.remove();throw e;}
   }
@@ -66,7 +68,7 @@ export function mount(host) {
       if(f.status==='conflict'){readFailed=true;throw Error('Resolve the file conflict in Files first.');}
       if(f.data.length>128*1024*1024)throw Error('G-code files are limited to 128 MiB.');
       if(!valid()||!c.valid()||token!==operation)return;
-      await show(f.data,p.split('/').pop(),token);if(valid()&&c.valid()&&token===operation){path.value=p;w.launchContext=Object.freeze({version:1,storage:'mirror',path:p,owner});watchFile(c,p,f);}
+      await show(f.data,p,token);if(valid()&&c.valid()&&token===operation){path.value=p;w.launchContext=Object.freeze({version:1,storage:'mirror',path:p,owner});watchFile(c,p,f);}
     }catch(e){if(restore&&readFailed&&target&&valid()&&token===operation){clearWatch();currentPath=target;reloadButton.disabled=false;notice.textContent='The saved file could not be read. Select Reload to retry.';notice.hidden=false;}tell('Could not preview G-code: '+e.message);}finally{busy=false;}
   }
   async function reload(){

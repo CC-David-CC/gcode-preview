@@ -102,3 +102,5 @@ instead clears that reference. Local registered-account desktop and emulated-
 phone tests cover an injected transient read failure, retry, server sync,
 preview and window close. Physical touch and machine behavior remain
 unverified.
+
+The label on the preview identifies the file actually shown, including its My files path. If loading a different file fails or parsing is cancelled, the previous label and preview remain together. The example is labeled separately.
