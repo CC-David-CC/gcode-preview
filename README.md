@@ -45,6 +45,11 @@ not modeled. The current preview remains visible. Stored offsets and other
 controller-specific behavior still cannot be inferred from the file; this is
 not a machine compatibility or safety check. See [Marlin home offsets](https://marlinfw.org/docs/gcode/M206.html).
 
+Hotend-offset commands `M218` are also rejected, including queries, because
+their effect is not modeled. A rejected file leaves the previous preview open.
+Other stored offsets may exist outside the file and remain unknown; this is
+not controller or machine validation. See [Marlin M218](https://marlinfw.org/docs/gcode/M218.html).
+
 Other unrecognized G commands carrying geometric or extrusion parameters are
 also rejected: ignoring a spline, probing move, or drilling cycle could make
 later toolpaths start from the wrong position. This conservative rule may also
