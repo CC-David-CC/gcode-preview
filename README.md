@@ -104,3 +104,12 @@ preview and window close. Physical touch and machine behavior remain
 unverified.
 
 The label on the preview identifies the file actually shown, including its My files path. If loading a different file fails or parsing is cancelled, the previous label and preview remain together. The example is labeled separately.
+
+Firmware-defined nozzle cleaning and parking commands `G12`, `G27`, `M125`, and
+`M600` are rejected, including commands without coordinates. They may cause
+machine-specific motion the viewer cannot show. The previous preview remains
+visible. See Marlin's [nozzle clean](https://marlinfw.org/docs/gcode/G012.html),
+[park toolhead](https://marlinfw.org/docs/gcode/G027.html),
+[park head](https://marlinfw.org/docs/gcode/M125.html), and
+[filament change](https://marlinfw.org/docs/gcode/M600.html) descriptions.
+This is not a complete check for controller-specific movement.
