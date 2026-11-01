@@ -83,3 +83,8 @@ touch, other dialects, and machine execution are unverified.
 (`M808`, `M810`–`M819`) and common [LinuxCNC subprogram control](https://www.linuxcnc.org/docs/master/html/en/gcode/o-code.html)
 (`M98`, `M99` and O-code) are rejected instead of drawing each source line as if it ran once. They are not
 simulated. This is still not a complete interpreter or machine-safety check.
+
+The viewer rejects Marlin babystepping commands `M290`, `M293`, and `M294`,
+which may move an axis without changing reported coordinates. It cannot show
+those effects accurately. See [Marlin babystepping](https://marlinfw.org/docs/features/z_offset_babystepping.html).
+Other controller-specific position changes remain outside this check.
