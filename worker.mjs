@@ -18,7 +18,7 @@ self.onmessage=({data})=>{
   // The renderer treats a positive E parameter as deposition. Convert absolute
   // E coordinates to deltas, and honor explicit relative E and G92 E resets.
   // This only classifies paths; it does not simulate the extruder or material.
-  let relative=false,relativeXYZ=false,hadMoves=false,positionUnknown=false,tool=0,x=0,y=0,z=0,units=1,offsetX=0,offsetY=0,offsetZ=0,arcSegments=0;const positions=new Map([[0,0]]);
+  let relative=false,relativeXYZ=false,hadMoves=false,positionUnknown=false,programEnded=false,tool=0,x=0,y=0,z=0,units=1,offsetX=0,offsetY=0,offsetZ=0,arcSegments=0;const positions=new Map([[0,0]]);
   const finite=value=>{if(!Number.isFinite(value))throw Error('A coordinate is outside the supported range. The current view is unchanged.');return value;};
   const validateWords=(src,allowed)=>{const words=src.split(';',1)[0].split(/([a-zA-Z])/g).slice(1),seen=new Set();for(let i=2;i<words.length;i+=2){const axis=words[i]?.trim().toLowerCase(),raw=(words[i+1]||'').trim();if(!allowed.includes(axis))continue;if(seen.has(axis)||!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(raw))throw Error('Malformed or duplicate coordinate. The current view is unchanged.');seen.add(axis);}};
   for(const command of commands){
@@ -27,6 +27,7 @@ self.onmessage=({data})=>{
    // The T parameter selects a heater on these commands; it is not a tool-change
    // command. Any other second G/M/T token remains ambiguous and is rejected.
    if(tokens.length>1&&!(tokens.length===2&&/^m(?:104|109|140|190)$/i.test(tokens[0].replace(/\s/g,''))&&/^t\s*\d+$/i.test(tokens[1])))throw Error('Multiple commands on one line are not supported. The current view is unchanged.');
+   if(/^m0*(?:2|30)$/.test(op)){programEnded=true;continue;}
    if(['g20','g020','g21','g021'].includes(op)){if(Object.keys(command.params||{}).length)throw Error('Coordinates on a unit-mode line are not supported. The current view is unchanged.');units=op==='g20'||op==='g020'?25.4:1;continue}
    // The location reached by homing depends on the machine. A final homing
    // command can be omitted from the preview, but subsequent geometry cannot.
@@ -42,6 +43,7 @@ self.onmessage=({data})=>{
     if(/^g\d/.test(op)&&Object.keys(command.params||{}).some(axis=>['x','y','z','e','i','j','k','r','a','b','c','u','v','w'].includes(axis)))throw Error('Unsupported G command with coordinates. The current view is unchanged.');
     continue;
    }
+   if(programEnded)throw Error('Motion after a possible program end (M2/M30) is not supported. The current view is unchanged.');
    validateWords(command.src,['x','y','z','e','i','j','r','f']);
    if(['a','b','c','u','v','w'].some(axis=>Object.hasOwn(command.params||{},axis)))throw Error('Moves with additional axes (A/B/C/U/V/W) are not supported. The current view is unchanged.');
    if(positionUnknown)throw Error('Moves or coordinate resets after homing are not supported. The current view is unchanged.');

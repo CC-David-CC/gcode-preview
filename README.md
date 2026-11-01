@@ -60,3 +60,5 @@ controller-specific verification.
 Malformed or repeated coordinate words in G0–G3 moves and G92 resets are
 rejected rather than partially interpreted. This is not a comprehensive
 G-code syntax or machine-safety check.
+
+Motion after M2 or M30 is rejected as ambiguous. For example, [LinuxCNC](https://www.linuxcnc.org/docs/html/gcode/m-code.html) treats these as program-end commands, while [Marlin](https://marlinfw.org/docs/gcode/) uses M30 differently. The viewer does not select or validate a controller dialect.
