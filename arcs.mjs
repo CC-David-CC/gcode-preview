@@ -4,10 +4,10 @@ export function normalizeArc(params,start,end,clockwise){
  const fail=message=>{throw Error(message+' The current view is unchanged.')};
  const dx=end.x-start.x,dy=end.y-start.y,chord=Math.hypot(dx,dy);
  if(!Number.isFinite(chord))fail('An arc is outside the supported coordinate range.');
- if(chord===0)fail('A full-circle arc cannot be shown reliably.');
  if(Object.keys(params).some(key=>!['x','y','z','e','f','i','j','r'].includes(key)))fail('This arc contains unsupported parameters.');
  const hasR=params.r!==undefined,hasI=params.i!==undefined,hasJ=params.j!==undefined;
  if(hasR){
+  if(chord===0)fail('A full-circle arc needs I or J center offsets, not R.');
   if(hasI||hasJ)fail('An arc cannot combine R with I or J in this viewer.');
   const radius=Math.abs(params.r),half=chord/2;
   if(!Number.isFinite(radius)||radius===0||radius<half)fail('The arc radius cannot reach its endpoint.');
@@ -31,6 +31,6 @@ export function normalizeArc(params,start,end,clockwise){
 export function arcSegmentCount(params,start,end,clockwise){
  const i=params.i??0,j=params.j??0,radius=Math.sqrt(i*i+j*j),cx=start.x+i,cy=start.y+j;
  if(!Number.isFinite(radius)||!Number.isFinite(cx)||!Number.isFinite(cy)||!Number.isFinite(end.x-cx)||!Number.isFinite(end.y-cy))throw Error('An arc is outside the supported coordinate range. The current view is unchanged.');
- const from=Math.atan2(-j,-i),to=Math.atan2(end.y-cy,end.x-cx);let sweep=clockwise?from-to:to-from;if(sweep<0)sweep+=2*Math.PI;
+ const from=Math.atan2(-j,-i),to=Math.atan2(end.y-cy,end.x-cx);let sweep=start.x===end.x&&start.y===end.y?2*Math.PI:clockwise?from-to:to-from;if(sweep<0)sweep+=2*Math.PI;
  const segments=Math.ceil(Math.max(1,radius*sweep/1.8));if(!Number.isSafeInteger(segments))throw Error('Arc geometry is too large to preview. The current view is unchanged.');return segments;
 }

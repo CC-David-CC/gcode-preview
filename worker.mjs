@@ -21,7 +21,7 @@ self.onmessage=({data})=>{
   // The renderer treats a positive E parameter as deposition. Convert absolute
   // E coordinates to deltas, and honor explicit relative E and G92 E resets.
   // This only classifies paths; it does not simulate the extruder or material.
-  let relative=false,relativeXYZ=false,hadMoves=false,positionUnknown=false,programEnded=false,tool=0,x=0,y=0,z=0,units=1,offsetX=0,offsetY=0,offsetZ=0,arcSegments=0;const positions=new Map([[0,0]]);
+  let relative=false,relativeXYZ=false,hadMoves=false,positionUnknown=false,programEnded=false,tool=0,x=0,y=0,z=0,units=1,offsetX=0,offsetY=0,offsetZ=0,arcSegments=0;const positions=new Map([[0,0]]),fullCircles=new Map();
   const finite=value=>{if(!Number.isFinite(value))throw Error('A coordinate is outside the supported range. The current view is unchanged.');return value;};
   const validateWords=(src,allowed)=>{const words=src.split(';',1)[0].split(/([a-zA-Z])/g).slice(1),seen=new Set();for(let i=2;i<words.length;i+=2){const axis=words[i]?.trim().toLowerCase(),raw=(words[i+1]||'').trim();if(!allowed.includes(axis))continue;if(seen.has(axis)||!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(raw))throw Error('Malformed or duplicate coordinate. The current view is unchanged.');seen.add(axis);}};
   for(const command of commands){
@@ -60,12 +60,15 @@ self.onmessage=({data})=>{
    for(const axis of ['x','y','z','e','i','j','r','f'])if(command.params[axis]!==undefined){if(!Number.isFinite(command.params[axis]))throw Error('A move contains an invalid coordinate. The current view is unchanged.');command.params[axis]=finite(command.params[axis]*units);}
    const nextX=command.params.x===undefined?x:relativeXYZ?x+command.params.x:command.params.x+offsetX,nextY=command.params.y===undefined?y:relativeXYZ?y+command.params.y:command.params.y+offsetY,nextZ=command.params.z===undefined?z:relativeXYZ?z+command.params.z:command.params.z+offsetZ;
    finite(nextX);finite(nextY);finite(nextZ);if(command.params.x!==undefined)command.params.x=nextX;if(command.params.y!==undefined)command.params.y=nextY;if(command.params.z!==undefined)command.params.z=nextZ;
-   if(/^g0?[23]$/.test(op)){const start={x,y},end={x:nextX,y:nextY},clockwise=/^g0?2$/.test(op);normalizeArc(command.params,start,end,clockwise);arcSegments+=arcSegmentCount(command.params,start,end,clockwise);if(arcSegments>200000)throw Error('This file has too much arc geometry to preview on this device. The current view is unchanged.');}
+   if(/^g0?[23]$/.test(op)){const start={x,y},end={x:nextX,y:nextY},clockwise=/^g0?2$/.test(op);normalizeArc(command.params,start,end,clockwise);command.params.i??=0;command.params.j??=0;const full=x===nextX&&y===nextY;arcSegments+=arcSegmentCount(command.params,start,end,clockwise)+(full?1:0);if(arcSegments>200000)throw Error('This file has too much arc geometry to preview on this device. The current view is unchanged.');if(full)fullCircles.set(command,{x,y,z,endZ:nextZ});}
    x=nextX;y=nextY;z=nextZ;if(!Number.isFinite(command.params.e))continue;
    const value=command.params.e,previous=positions.get(tool)??0,delta=relative?value:value-previous;
    positions.set(tool,finite(relative?previous+value:value));command.params.e=finite(delta);
   }
-  parser.groupIntoLayers(commands);parser.metadata.thumbnails=parser.parseMetadata(commands.filter(c=>c.comment)).thumbnails;
+  // The upstream renderer skips an arc when its XY endpoints match. Split a
+  // full turn into two half turns, retaining its helical Z and E interpolation.
+  const renderCommands=commands.flatMap(command=>{const start=fullCircles.get(command);if(!start)return [command];const p=command.params,i=p.i,j=p.j,mid={...p,x:finite(start.x+2*i),y:finite(start.y+2*j),z:finite(start.z+(start.endZ-start.z)/2)},end={...p,x:start.x,y:start.y,z:start.endZ,i:-i,j:-j};if(p.e!==undefined){mid.e=p.e/2;end.e=p.e-mid.e;}const second=Object.assign(Object.create(Object.getPrototypeOf(command)),command,{params:end,comment:undefined});command.params=mid;return [command,second];});
+  parser.groupIntoLayers(renderCommands);parser.metadata.thumbnails=parser.parseMetadata(commands.filter(c=>c.comment)).thumbnails;
   self.postMessage({preamble:parser.preamble,layers:parser.layers,metadata:parser.metadata});
  }catch(error){self.postMessage({error:error.message||'Could not parse this file.'});}
 };
