@@ -7,6 +7,7 @@ self.onmessage=({data})=>{
   const lines=new TextDecoder('utf-8',{fatal:true}).decode(data.bytes).split('\n');let hasMoves=false;
   for(let i=0;i<lines.length;i++){
    const line=lines[i]=stripParenthesizedComments(lines[i]);
+   if(/^\s*[ABCUVW]\s*[+-]?(?:\d|\.)/i.test(line))throw Error('Moves with additional axes (A/B/C/U/V/W) are not supported. The current view is unchanged.');
    if(/^\s*(?:N\d+\s*)?G0?[0123](?=\s|[XYZEFIJR;]|$)/i.test(line))hasMoves=true;
    if(/^[ \t]*N\d+(?=\s|[A-Z]|$)/i.test(line))throw Error('Numbered commands are not supported. The current view is unchanged.');
    if(/^[ \t]*G0?92\.[123](?=[ \tXYZEFIJR;]|$)/i.test(line))throw Error('Coordinate reset modes (G92.1–G92.3) are not supported. The current view is unchanged.');
@@ -37,9 +38,10 @@ self.onmessage=({data})=>{
     // Other G commands carrying geometric or extrusion parameters can move
     // the machine or change interpretation. Skipping them would make later
     // paths start from a position we cannot establish.
-    if(/^g\d/.test(op)&&Object.keys(command.params||{}).some(axis=>['x','y','z','e','i','j','k','r'].includes(axis)))throw Error('Unsupported G command with coordinates. The current view is unchanged.');
+    if(/^g\d/.test(op)&&Object.keys(command.params||{}).some(axis=>['x','y','z','e','i','j','k','r','a','b','c','u','v','w'].includes(axis)))throw Error('Unsupported G command with coordinates. The current view is unchanged.');
     continue;
    }
+   if(['a','b','c','u','v','w'].some(axis=>Object.hasOwn(command.params||{},axis)))throw Error('Moves with additional axes (A/B/C/U/V/W) are not supported. The current view is unchanged.');
    if(positionUnknown)throw Error('Moves or coordinate resets after homing are not supported. The current view is unchanged.');
    hadMoves=true;
    for(const axis of ['x','y','z','e','i','j','r','f'])if(command.params[axis]!==undefined){if(!Number.isFinite(command.params[axis]))throw Error('A move contains an invalid coordinate. The current view is unchanged.');command.params[axis]=finite(command.params[axis]*units);}

@@ -50,3 +50,9 @@ also rejected: ignoring a spline, probing move, or drilling cycle could make
 later toolpaths start from the wrong position. This conservative rule may also
 reject non-motion commands that use those letters. Commands without those
 parameters can still have controller-specific effects that are not modeled.
+
+Moves containing A/B/C rotary axes or U/V/W additional axes and unsupported
+G commands carrying these coordinates are rejected because this viewer cannot
+represent their effect. The previous preview stays
+visible. This does not identify every unsupported machine command or replace
+controller-specific verification.
