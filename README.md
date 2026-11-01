@@ -56,3 +56,7 @@ G commands carrying these coordinates are rejected because this viewer cannot
 represent their effect. The previous preview stays
 visible. This does not identify every unsupported machine command or replace
 controller-specific verification.
+
+Malformed or repeated coordinate words in G0–G3 moves and G92 resets are
+rejected rather than partially interpreted. This is not a comprehensive
+G-code syntax or machine-safety check.

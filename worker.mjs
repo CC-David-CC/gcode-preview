@@ -20,6 +20,7 @@ self.onmessage=({data})=>{
   // This only classifies paths; it does not simulate the extruder or material.
   let relative=false,relativeXYZ=false,hadMoves=false,positionUnknown=false,tool=0,x=0,y=0,z=0,units=1,offsetX=0,offsetY=0,offsetZ=0,arcSegments=0;const positions=new Map([[0,0]]);
   const finite=value=>{if(!Number.isFinite(value))throw Error('A coordinate is outside the supported range. The current view is unchanged.');return value;};
+  const validateWords=(src,allowed)=>{const words=src.split(';',1)[0].split(/([a-zA-Z])/g).slice(1),seen=new Set();for(let i=2;i<words.length;i+=2){const axis=words[i]?.trim().toLowerCase(),raw=(words[i+1]||'').trim();if(!allowed.includes(axis))continue;if(seen.has(axis)||!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(raw))throw Error('Malformed or duplicate coordinate. The current view is unchanged.');seen.add(axis);}};
   for(const command of commands){
    const op=command.gcode,tokens=command.src.split(';',1)[0].match(/[GMT]\s*\d+(?:\.\d+)?/gi)||[];
    if(/^m0*(?:206|428)$/.test(op))throw Error('Home offset changes (M206/M428) are not supported. The current view is unchanged.');
@@ -33,7 +34,7 @@ self.onmessage=({data})=>{
    if(['g10','g010','g43','g043','g49','g049','g51','g051','g68','g068','g69','g069','g18','g018','g19','g019','g52','g052','g53','g053','g54','g054','g55','g055','g56','g056','g57','g057','g58','g058','g59','g059'].includes(op)||/^g0?(?:59|92)\./.test(op))throw Error('This coordinate system or arc plane is not supported. The current view is unchanged.');
    if(['g90','g090','g91','g091'].includes(op)){if(Object.keys(command.params||{}).length)throw Error('Coordinates on a positioning-mode line are not supported. The current view is unchanged.');relativeXYZ=op==='g91'||op==='g091';continue}if(op==='m82'){relative=false;continue}if(op==='m83'){relative=true;continue}
    if(/^t[0-9]+$/.test(op)){tool=Number(op.slice(1));if(!positions.has(tool))positions.set(tool,0);continue}
-   if(op==='g92'||op==='g092'){if(positionUnknown)throw Error('Moves or coordinate resets after homing are not supported. The current view is unchanged.');const p=command.params||{},keys=Object.keys(p);if(!keys.length||keys.some(k=>!['x','y','z','e'].includes(k)||!Number.isFinite(p[k])))throw Error('This coordinate reset is not supported. The current view is unchanged.');if(p.x!==undefined)offsetX=finite(x-finite(p.x*units));if(p.y!==undefined)offsetY=finite(y-finite(p.y*units));if(p.z!==undefined)offsetZ=finite(z-finite(p.z*units));if(p.e!==undefined)positions.set(tool,finite(p.e*units));continue}
+   if(op==='g92'||op==='g092'){validateWords(command.src,['x','y','z','e']);if(positionUnknown)throw Error('Moves or coordinate resets after homing are not supported. The current view is unchanged.');const p=command.params||{},keys=Object.keys(p);if(!keys.length||keys.some(k=>!['x','y','z','e'].includes(k)||!Number.isFinite(p[k])))throw Error('This coordinate reset is not supported. The current view is unchanged.');if(p.x!==undefined)offsetX=finite(x-finite(p.x*units));if(p.y!==undefined)offsetY=finite(y-finite(p.y*units));if(p.z!==undefined)offsetZ=finite(z-finite(p.z*units));if(p.e!==undefined)positions.set(tool,finite(p.e*units));continue}
    if(!/^g0?[0123]$/.test(op)){
     // Other G commands carrying geometric or extrusion parameters can move
     // the machine or change interpretation. Skipping them would make later
@@ -41,6 +42,7 @@ self.onmessage=({data})=>{
     if(/^g\d/.test(op)&&Object.keys(command.params||{}).some(axis=>['x','y','z','e','i','j','k','r','a','b','c','u','v','w'].includes(axis)))throw Error('Unsupported G command with coordinates. The current view is unchanged.');
     continue;
    }
+   validateWords(command.src,['x','y','z','e','i','j','r','f']);
    if(['a','b','c','u','v','w'].some(axis=>Object.hasOwn(command.params||{},axis)))throw Error('Moves with additional axes (A/B/C/U/V/W) are not supported. The current view is unchanged.');
    if(positionUnknown)throw Error('Moves or coordinate resets after homing are not supported. The current view is unchanged.');
    hadMoves=true;
