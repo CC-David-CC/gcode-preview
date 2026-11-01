@@ -19,7 +19,8 @@ self.onmessage=({data})=>{
   if(!hasMoves)throw Error('No supported G0–G3 moves were found. The current view is unchanged.');
   const parser=new CodiParser(0),commands=parser.lines2commands(expandLinearModal(lines));
   // The renderer treats a positive E parameter as deposition. Convert absolute
-  // E coordinates to deltas, and honor explicit relative E and G92 E resets.
+  // E coordinates to deltas, following Marlin's G90/G91 and M82/M83 modes
+  // and G92 E resets. Other firmware may interpret those modes differently.
   // This only classifies paths; it does not simulate the extruder or material.
   let relative=false,relativeXYZ=false,hadMoves=false,positionUnknown=false,programEnded=false,tool=0,x=0,y=0,z=0,units=1,offsetX=0,offsetY=0,offsetZ=0,arcSegments=0;const positions=new Map([[0,0]]),fullCircles=new Map();
   const finite=value=>{if(!Number.isFinite(value))throw Error('A coordinate is outside the supported range. The current view is unchanged.');return value;};
@@ -42,7 +43,7 @@ self.onmessage=({data})=>{
    // command can be omitted from the preview, but subsequent geometry cannot.
    if(op==='g28'||op==='g028'){if(hadMoves)positionUnknown=true;continue;}
    if(['g10','g010','g43','g043','g49','g049','g51','g051','g68','g068','g69','g069','g18','g018','g19','g019','g52','g052','g53','g053','g54','g054','g55','g055','g56','g056','g57','g057','g58','g058','g59','g059'].includes(op)||/^g0?(?:59|92)\./.test(op))throw Error('This coordinate system or arc plane is not supported. The current view is unchanged.');
-   if(['g90','g090','g91','g091'].includes(op)){if(Object.keys(command.params||{}).length)throw Error('Coordinates on a positioning-mode line are not supported. The current view is unchanged.');relativeXYZ=op==='g91'||op==='g091';continue}if(op==='m82'){relative=false;continue}if(op==='m83'){relative=true;continue}
+   if(['g90','g090','g91','g091'].includes(op)){if(Object.keys(command.params||{}).length)throw Error('Coordinates on a positioning-mode line are not supported. The current view is unchanged.');relativeXYZ=op==='g91'||op==='g091';relative=relativeXYZ;continue}if(op==='m82'){relative=false;continue}if(op==='m83'){relative=true;continue}
    if(/^t[0-9]+$/.test(op)){tool=Number(op.slice(1));if(!positions.has(tool))positions.set(tool,0);continue}
    if(op==='g92'||op==='g092'){validateWords(command.src,['x','y','z','e']);if(positionUnknown)throw Error('Moves or coordinate resets after homing are not supported. The current view is unchanged.');const p=command.params||{},keys=Object.keys(p);if(!keys.length||keys.some(k=>!['x','y','z','e'].includes(k)||!Number.isFinite(p[k])))throw Error('This coordinate reset is not supported. The current view is unchanged.');if(p.x!==undefined)offsetX=finite(x-finite(p.x*units));if(p.y!==undefined)offsetY=finite(y-finite(p.y*units));if(p.z!==undefined)offsetZ=finite(z-finite(p.z*units));if(p.e!==undefined)positions.set(tool,finite(p.e*units));continue}
    if(!/^g0?[0123]$/.test(op)){

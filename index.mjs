@@ -23,8 +23,8 @@ export function mount(host) {
   const notice=make('p','gcode-file-notice');notice.hidden=true;notice.setAttribute('role','status');
   const travel=document.createElement('input');travel.type='checkbox';travel.checked=true;
   const travelLabel=make('label','gcode-travel');travelLabel.append(travel,document.createTextNode(' Show travel (orange)'));
-  intro.textContent='Blue: estimated extrusion. Orange: travel or non-extruding. Visual preview only; not a machine or safety check.';
-  limitsText.textContent='This viewer does not connect to a printer or CNC machine. The 220 × 220 × 250 mm grid is illustrative, not a printer profile. The preview starts at zero with millimeter units unless the file changes them; stored machine offsets and homing movement are not modeled. G90/G91 control XYZ; M82/M83 control extrusion. Turn on travel to see paths in CNC files without extrusion commands. Other controller behavior may differ.';limits.append(limitsSummary,limitsText);
+  intro.textContent='Blue: estimated extrusion. Orange: travel or non-extruding. Assumes Marlin-style extrusion positioning. Visual preview only; not a machine or safety check.';
+  limitsText.textContent='This viewer does not connect to a printer or CNC machine. The 220 × 220 × 250 mm grid is illustrative, not a printer profile. The preview starts at zero with millimeter units unless the file changes them; stored machine offsets and homing movement are not modeled. Extrusion mode follows Marlin: G90/G91 set XYZ and E modes and clear M82/M83 overrides; M82/M83 override E until the next G90/G91. Klipper and other firmware can differ. Turn on travel to see paths in CNC files without extrusion commands. Other controller behavior may differ.';limits.append(limitsSummary,limitsText);
   status.setAttribute('role','status');
   let disposed=false,preview=null,canvas=null,observer,busy=false,operation=0,parseWorker=null,cancelParse=null,currentPath=null,unsubscribe=()=>{},watchRevision=0,checkRevision=0;
   const valid=()=>!disposed&&!host.signal.aborted&&body.isConnected&&owner===signedInSubject();
