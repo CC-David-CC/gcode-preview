@@ -30,6 +30,10 @@ self.onmessage=({data})=>{
    if(/^m0*(?:206|428)$/.test(op))throw Error('Home offset changes (M206/M428) are not supported. The current view is unchanged.');
    if(/^m0*218$/.test(op))throw Error('Hotend offset changes (M218) are not supported. The current view is unchanged.');
    if(/^m0*(?:290|293|294)$/.test(op))throw Error('Babystepping (M290/M293/M294) is not supported. The current view is unchanged.');
+   // Marlin G61 and G60 Q restore saved positions, potentially without axis
+   // parameters. Saved slots can be machine state or be changed in the file;
+   // silently skipping a restore makes subsequent paths start at the wrong spot.
+   if(/^g0*(?:60|61)$/.test(op))throw Error('Saved-position commands (G60/G61) are not supported. The current view is unchanged.');
    // Firmware-controlled parking/cleaning moves use machine-specific stored
    // positions. Skipping them can omit motion and leave later XYZ positions
    // wrong, even when the command carries no explicit coordinates.

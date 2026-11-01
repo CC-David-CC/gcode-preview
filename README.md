@@ -115,3 +115,11 @@ visible. See Marlin's [nozzle clean](https://marlinfw.org/docs/gcode/G012.html),
 This is not a complete check for controller-specific movement.
 
 Full XY circles using G2/G3 and nonzero relative I/J center offsets are supported, including helical Z and extrusion changes. The worker splits a full turn into two half turns because the renderer otherwise skips a same-endpoint arc. Radius-only full circles remain ambiguous and are rejected. This follows the basic [Marlin G2/G3 form](https://marlinfw.org/docs/gcode/G002-G003.html); controller dialects may differ. Local account tests inspect the renderer’s emitted segments for clockwise and counterclockwise circle direction, diameter, helical height, endpoints and extrusion classification; they also cover inches and relative movement, rejected planes and oversized geometry, and reopening a synced file on desktop and emulated phone. This viewer does not save or edit G-code; the workflow saves the source to My files and reopens it here.
+
+Saved-position commands `G60` and `G61` are rejected, even without axis
+parameters. [Marlin G61](https://marlinfw.org/docs/gcode/G061.html) can move
+back to a stored position, and [Marlin G60](https://marlinfw.org/docs/gcode/G060.html)
+can also restore one with `Q`. This viewer does not track those slots; it keeps
+the previous preview instead of drawing subsequent moves from a wrong position.
+It conservatively rejects G60 reporting and storing operations as well. Other
+controller-specific behavior and stored machine state remain unmodeled.
