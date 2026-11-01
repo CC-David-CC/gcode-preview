@@ -12,6 +12,12 @@ Run `npm ci --prefix apps/system/gcode-preview --ignore-scripts` before building
 
 The build pins a narrow upstream patch that exports the library’s existing parser to the worker. The app uses the same library to render the resulting commands; review the patch and its hash when upgrading `gcode-preview`.
 
+Parenthesized comments are removed before parsing, so text such as `(X999)`
+cannot become a coordinate in the preview. Semicolon comments remain intact.
+Unmatched or nested parentheses are rejected and leave the previous preview
+open. This does not implement macro expressions or establish controller
+compatibility.
+
 The local compact-layout candidate keeps the visual-only warning visible and
 puts additional interpretation limits under **Preview limits**. The app scrolls
 when expanded controls or a short screen require it, and its main buttons have

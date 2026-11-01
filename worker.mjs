@@ -1,14 +1,19 @@
 import {CodiParser} from 'gcode-preview';
 import {expandLinearModal} from './modal.mjs';
 import {normalizeArc,arcSegmentCount} from './arcs.mjs';
+import {stripParenthesizedComments} from './comments.mjs';
 self.onmessage=({data})=>{
  try{
-  const code=new TextDecoder('utf-8',{fatal:true}).decode(data.bytes);
-  if(!/(?:^|\n)\s*(?:N\d+\s*)?G0?[0123](?=\s|[XYZEFIJR;]|$)/im.test(code))throw Error('No supported G0–G3 moves were found. The current view is unchanged.');
-  if(/^[ \t]*N\d+(?=\s|[A-Z]|$)/im.test(code))throw Error('Numbered commands are not supported. The current view is unchanged.');
-  if(/^[ \t]*G0?92\.[123](?=[ \tXYZEFIJR;]|$)/im.test(code))throw Error('Coordinate reset modes (G92.1–G92.3) are not supported. The current view is unchanged.');
-  if(/^[ \t]*G0?9[01]\.1(?=[ \tXYZEFIJR;]|$)/im.test(code))throw Error('Arc center mode changes (G90.1/G91.1) are not supported. The current view is unchanged.');
-  const parser=new CodiParser(0),commands=parser.lines2commands(expandLinearModal(code.split('\n')));
+  const lines=new TextDecoder('utf-8',{fatal:true}).decode(data.bytes).split('\n');let hasMoves=false;
+  for(let i=0;i<lines.length;i++){
+   const line=lines[i]=stripParenthesizedComments(lines[i]);
+   if(/^\s*(?:N\d+\s*)?G0?[0123](?=\s|[XYZEFIJR;]|$)/i.test(line))hasMoves=true;
+   if(/^[ \t]*N\d+(?=\s|[A-Z]|$)/i.test(line))throw Error('Numbered commands are not supported. The current view is unchanged.');
+   if(/^[ \t]*G0?92\.[123](?=[ \tXYZEFIJR;]|$)/i.test(line))throw Error('Coordinate reset modes (G92.1–G92.3) are not supported. The current view is unchanged.');
+   if(/^[ \t]*G0?9[01]\.1(?=[ \tXYZEFIJR;]|$)/i.test(line))throw Error('Arc center mode changes (G90.1/G91.1) are not supported. The current view is unchanged.');
+  }
+  if(!hasMoves)throw Error('No supported G0–G3 moves were found. The current view is unchanged.');
+  const parser=new CodiParser(0),commands=parser.lines2commands(expandLinearModal(lines));
   // The renderer treats a positive E parameter as deposition. Convert absolute
   // E coordinates to deltas, and honor explicit relative E and G92 E resets.
   // This only classifies paths; it does not simulate the extruder or material.
