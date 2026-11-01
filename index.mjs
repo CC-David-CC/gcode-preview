@@ -17,12 +17,14 @@ export function mount(host) {
   const {mirrorFileContext,signedInSubject}=host.storage;
   const owner=w.launchContext?.owner||signedInSubject();
   w.ownerSub=owner;
-  const body=make('div','window-content gcode-app'),intro=make('p','gcode-intro'),bar=make('div','gcode-bar');
+  const body=make('div','window-content gcode-app'),intro=make('p','gcode-intro'),limits=document.createElement('details'),limitsSummary=make('summary','','Preview limits'),limitsText=make('p','gcode-limits'),bar=make('div','gcode-bar');
   const path=appInput('G-code file path',w.launchContext?.path||'/'),stage=make('div','gcode-stage'),status=make('div','app-status');
   const notice=make('p','gcode-file-notice');notice.hidden=true;notice.setAttribute('role','status');
   const travel=document.createElement('input');travel.type='checkbox';travel.checked=true;
   const travelLabel=make('label','gcode-travel');travelLabel.append(travel,document.createTextNode(' Show non-extruding moves'));
-  intro.textContent='Inspect a toolpath in your browser. This is a visual preview, not a machine or safety check; it does not connect to a printer or CNC machine. The preview starts at zero with millimeter units unless the file changes them; stored machine offsets and homing movement are not modeled. G90/G91 control XYZ; M82/M83 control extrusion.';
+  intro.textContent='Visual preview only; not a machine or safety check.';
+  limitsText.textContent='This viewer does not connect to a printer or CNC machine. The 220 × 220 × 250 mm grid is illustrative, not a printer profile. The preview starts at zero with millimeter units unless the file changes them; stored machine offsets and homing movement are not modeled. G90/G91 control XYZ; M82/M83 control extrusion. Other controller behavior may differ.';limits.append(limitsSummary,limitsText);
+  status.setAttribute('role','status');
   let disposed=false,preview=null,canvas=null,observer,busy=false,operation=0,parseWorker=null,cancelParse=null,currentPath=null,unsubscribe=()=>{},watchRevision=0,checkRevision=0;
   const valid=()=>!disposed&&!host.signal.aborted&&body.isConnected&&owner===signedInSubject();
   const tell=t=>{if(valid())status.textContent=t;};
@@ -51,7 +53,7 @@ export function mount(host) {
       next.parser.preamble=parsed.preamble;next.parser.layers=parsed.layers;next.parser.metadata=parsed.metadata;next.render();next.resize();
       if(!valid()||token!==operation)throw Error('Window closed.');
       const previous=preview,old=canvas;preview=next;canvas=candidate;next=null;candidate.classList.remove('gcode-candidate');previous?.dispose();old?.remove();
-      tell(source+' loaded. Drag to rotate; pinch or scroll to zoom. The 220 × 220 × 250 mm grid is illustrative, not a printer profile.');
+      tell(source+' loaded. Grid is illustrative; drag to rotate, pinch or scroll to zoom.');
     }catch(e){next?.dispose();candidate.remove();throw e;}
   }
 
@@ -82,7 +84,7 @@ export function mount(host) {
   const cancelButton=textButton('Cancel parsing',()=>cancelParse?.());cancelButton.disabled=true;
   const reloadButton=textButton('Reload',reload);reloadButton.disabled=true;
   bar.append(textButton('Open from My files',browse),reloadButton,cancelButton,textButton('Try example',async()=>{if(busy||!valid())return;busy=true;const token=++operation;try{await show(new TextEncoder().encode(EXAMPLE),'Example',token);if(valid()&&token===operation){clearWatch();w.launchContext=null;}}catch(e){tell('Could not preview example: '+e.message);}finally{busy=false;}}),textButton('Files',()=>desktop.launch('files')),travelLabel);
-  body.append(intro,bar,location,notice,stage,status);tell('Open a file from My files, or try the example. Upload from your computer in Files.');
+  body.append(intro,limits,bar,location,notice,stage,status);tell('Open a file from My files, or try the example. Upload from your computer in Files.');
   observer=new ResizeObserver(()=>{if(preview&&valid())preview.resize();});observer.observe(stage);
   if(w.launchContext?.storage==='mirror'&&w.launchContext.owner===owner)queueMicrotask(()=>open(w.launchContext.path));
   return {element:body,dispose(){if(disposed)return;disposed=true;operation++;clearWatch();cancelParse?.();parseWorker?.terminate();observer.disconnect();preview?.dispose();canvas?.remove();}};

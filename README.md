@@ -12,6 +12,16 @@ Run `npm ci --prefix apps/system/gcode-preview --ignore-scripts` before building
 
 The build pins a narrow upstream patch that exports the library’s existing parser to the worker. The app uses the same library to render the resulting commands; review the patch and its hash when upgrading `gcode-preview`.
 
+The local compact-layout candidate keeps the visual-only warning visible and
+puts additional interpretation limits under **Preview limits**. The app scrolls
+when expanded controls or a short screen require it, and its main buttons have
+44 px targets. Local desktop, emulated-phone and 4K account tests open a real
+file, preserve the previous preview on an invalid file, and exercise the limits
+and status. On a 320 × 568 emulated phone the complete preview fits before
+opening details; the previous layout clipped it. The test moves the scroll
+container programmatically, so physical touch scrolling remains unverified. The
+candidate is not live; this is a usability change, not a machine-safety check.
+
 Equivalent relative and absolute paths were compared for coordinates, layers and rendered pixels in local desktop and emulated-phone tests; a live emulated-phone account workflow opened and recovered a relative file. Physical touch, machine behavior and other controller dialects remain unverified.
 
 Local worker and desktop/phone-sized rendering tests compare equivalent inch and metric paths and equivalent coordinate-reset and absolute paths, including unit changes, extrusion and an XY arc. A 4K-sized viewport test covers the same file workflow. These comparisons do not establish controller or physical-machine compatibility.
