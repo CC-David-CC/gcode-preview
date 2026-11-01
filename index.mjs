@@ -57,17 +57,17 @@ export function mount(host) {
     }catch(e){next?.dispose();candidate.remove();throw e;}
   }
 
-  async function open(selected){
-    if(busy||!valid())return;busy=true;const token=++operation;
+  async function open(selected,{restore=false}={}){
+    if(busy||!valid())return;busy=true;const token=++operation;let target=null,readFailed=false;
     try{
-      const c=await mirrorFileContext(),p=c.path(selected||path.value);
+      const c=await mirrorFileContext(),p=c.path(selected||path.value);target=p;
       if(!/\.(?:gcode|gco|nc|ngc|gc|g|tap)$/i.test(p))throw Error('Choose a G-code file (.gcode, .gco, .nc, .ngc, .gc, .g or .tap) from My files.');
-      const f=await c.files.read(p);
-      if(f.status==='conflict')throw Error('Resolve the file conflict in Files first.');
+      let f;try{f=await c.files.read(p);}catch(e){readFailed=true;throw e;}
+      if(f.status==='conflict'){readFailed=true;throw Error('Resolve the file conflict in Files first.');}
       if(f.data.length>128*1024*1024)throw Error('G-code files are limited to 128 MiB.');
       if(!valid()||!c.valid()||token!==operation)return;
       await show(f.data,p.split('/').pop(),token);if(valid()&&c.valid()&&token===operation){path.value=p;w.launchContext=Object.freeze({version:1,storage:'mirror',path:p,owner});watchFile(c,p,f);}
-    }catch(e){tell('Could not preview G-code: '+e.message);}finally{busy=false;}
+    }catch(e){if(restore&&readFailed&&target&&valid()&&token===operation){clearWatch();currentPath=target;reloadButton.disabled=false;notice.textContent='The saved file could not be read. Select Reload to retry.';notice.hidden=false;}tell('Could not preview G-code: '+e.message);}finally{busy=false;}
   }
   async function reload(){
     if(busy||!valid()||!currentPath)return;const target=currentPath;busy=true;let ready=false;
@@ -88,6 +88,6 @@ export function mount(host) {
   bar.append(textButton('Open from My files',browse),reloadButton,cancelButton,textButton('Try example',async()=>{if(busy||!valid())return;busy=true;const token=++operation;try{await show(new TextEncoder().encode(EXAMPLE),'Example',token);if(valid()&&token===operation){clearWatch();w.launchContext=null;}}catch(e){tell('Could not preview example: '+e.message);}finally{busy=false;}}),textButton('Files',()=>desktop.launch('files')),travelLabel);
   body.append(intro,limits,bar,location,notice,stage,status);tell('Open a file from My files, or try the example. Upload from your computer in Files.');
   observer=new ResizeObserver(()=>{if(preview&&valid())preview.resize();});observer.observe(stage);
-  if(w.launchContext?.storage==='mirror'&&w.launchContext.owner===owner)queueMicrotask(()=>open(w.launchContext.path));
+  if(w.launchContext?.storage==='mirror'&&w.launchContext.owner===owner)queueMicrotask(()=>open(w.launchContext.path,{restore:true}));
   return {element:body,dispose(){if(disposed)return;disposed=true;operation++;clearWatch();cancelParse?.();parseWorker?.terminate();observer.disconnect();preview?.dispose();canvas?.remove();}};
 }

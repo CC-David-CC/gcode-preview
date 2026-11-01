@@ -88,3 +88,11 @@ The viewer rejects Marlin babystepping commands `M290`, `M293`, and `M294`,
 which may move an axis without changing reported coordinates. It cannot show
 those effects accurately. See [Marlin babystepping](https://marlinfw.org/docs/features/z_offset_babystepping.html).
 Other controller-specific position changes remain outside this check.
+
+If restoring a saved toolpath fails because the file cannot be read or is in
+conflict, the viewer keeps its saved reference and offers **Reload**. Reload
+first synchronizes with the server, then retries the file. Opening an example
+instead clears that reference. Local registered-account desktop and emulated-
+phone tests cover an injected transient read failure, retry, server sync,
+preview and window close. Physical touch and machine behavior remain
+unverified.
