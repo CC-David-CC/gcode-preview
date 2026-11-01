@@ -21,6 +21,7 @@ self.onmessage=({data})=>{
   const finite=value=>{if(!Number.isFinite(value))throw Error('A coordinate is outside the supported range. The current view is unchanged.');return value;};
   for(const command of commands){
    const op=command.gcode,tokens=command.src.split(';',1)[0].match(/[GMT]\s*\d+(?:\.\d+)?/gi)||[];
+   if(/^m0*(?:206|428)$/.test(op))throw Error('Home offset changes (M206/M428) are not supported. The current view is unchanged.');
    // The T parameter selects a heater on these commands; it is not a tool-change
    // command. Any other second G/M/T token remains ambiguous and is rejected.
    if(tokens.length>1&&!(tokens.length===2&&/^m(?:104|109|140|190)$/i.test(tokens[0].replace(/\s/g,''))&&/^t\s*\d+$/i.test(tokens[1])))throw Error('Multiple commands on one line are not supported. The current view is unchanged.');

@@ -39,3 +39,8 @@ XY arcs with positive or negative R are converted to relative I/J center offsets
 To prevent the renderer from attempting unbounded arc subdivision, the parsing worker estimates the displayed arc segments and rejects files exceeding 200,000 segments or overflowing its arc calculations. This is a preview resource limit; it does not guarantee that other large files will fit a device’s memory.
 
 For I/J center arcs, the viewer rejects a start/end radius difference greater than the larger of 0.01 mm or 0.1% of the starting radius. This permits small rounding differences; it is a preview rule, not a controller-acceptance or safety guarantee. A rejected file leaves the previous view in place. Local desktop, emulated-phone and 4K and live emulated-phone account tests cover inconsistent and rounded centers, equivalent R/IJ paths and previous-view preservation.
+
+Home-offset changes `M206` and `M428` are rejected because their effects are
+not modeled. The current preview remains visible. Stored offsets and other
+controller-specific behavior still cannot be inferred from the file; this is
+not a machine compatibility or safety check. See [Marlin home offsets](https://marlinfw.org/docs/gcode/M206.html).
