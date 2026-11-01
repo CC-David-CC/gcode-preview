@@ -26,7 +26,7 @@ file, preserve the previous preview on an invalid file, and exercise the limits
 and status. On a 320 × 568 emulated phone the complete preview fits before
 opening details; the previous layout clipped it. The test moves the scroll
 container programmatically, so physical touch scrolling remains unverified. The
-candidate is not live; this is a usability change, not a machine-safety check.
+change is live; it is a usability change, not a machine-safety check.
 
 Equivalent relative and absolute paths were compared for coordinates, layers and rendered pixels in local desktop and emulated-phone tests; a live emulated-phone account workflow opened and recovered a relative file. Physical touch, machine behavior and other controller dialects remain unverified.
 
