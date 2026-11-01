@@ -44,3 +44,9 @@ Home-offset changes `M206` and `M428` are rejected because their effects are
 not modeled. The current preview remains visible. Stored offsets and other
 controller-specific behavior still cannot be inferred from the file; this is
 not a machine compatibility or safety check. See [Marlin home offsets](https://marlinfw.org/docs/gcode/M206.html).
+
+Other unrecognized G commands carrying geometric or extrusion parameters are
+also rejected: ignoring a spline, probing move, or drilling cycle could make
+later toolpaths start from the wrong position. This conservative rule may also
+reject non-motion commands that use those letters. Commands without those
+parameters can still have controller-specific effects that are not modeled.

@@ -28,12 +28,18 @@ self.onmessage=({data})=>{
    if(['g20','g020','g21','g021'].includes(op)){if(Object.keys(command.params||{}).length)throw Error('Coordinates on a unit-mode line are not supported. The current view is unchanged.');units=op==='g20'||op==='g020'?25.4:1;continue}
    // The location reached by homing depends on the machine. A final homing
    // command can be omitted from the preview, but subsequent geometry cannot.
-   if((op==='g28'||op==='g028')&&hadMoves){positionUnknown=true;continue;}
+   if(op==='g28'||op==='g028'){if(hadMoves)positionUnknown=true;continue;}
    if(['g10','g010','g43','g043','g49','g049','g51','g051','g68','g068','g69','g069','g18','g018','g19','g019','g52','g052','g53','g053','g54','g054','g55','g055','g56','g056','g57','g057','g58','g058','g59','g059'].includes(op)||/^g0?(?:59|92)\./.test(op))throw Error('This coordinate system or arc plane is not supported. The current view is unchanged.');
    if(['g90','g090','g91','g091'].includes(op)){if(Object.keys(command.params||{}).length)throw Error('Coordinates on a positioning-mode line are not supported. The current view is unchanged.');relativeXYZ=op==='g91'||op==='g091';continue}if(op==='m82'){relative=false;continue}if(op==='m83'){relative=true;continue}
    if(/^t[0-9]+$/.test(op)){tool=Number(op.slice(1));if(!positions.has(tool))positions.set(tool,0);continue}
    if(op==='g92'||op==='g092'){if(positionUnknown)throw Error('Moves or coordinate resets after homing are not supported. The current view is unchanged.');const p=command.params||{},keys=Object.keys(p);if(!keys.length||keys.some(k=>!['x','y','z','e'].includes(k)||!Number.isFinite(p[k])))throw Error('This coordinate reset is not supported. The current view is unchanged.');if(p.x!==undefined)offsetX=finite(x-finite(p.x*units));if(p.y!==undefined)offsetY=finite(y-finite(p.y*units));if(p.z!==undefined)offsetZ=finite(z-finite(p.z*units));if(p.e!==undefined)positions.set(tool,finite(p.e*units));continue}
-   if(!/^g0?[0123]$/.test(op))continue;
+   if(!/^g0?[0123]$/.test(op)){
+    // Other G commands carrying geometric or extrusion parameters can move
+    // the machine or change interpretation. Skipping them would make later
+    // paths start from a position we cannot establish.
+    if(/^g\d/.test(op)&&Object.keys(command.params||{}).some(axis=>['x','y','z','e','i','j','k','r'].includes(axis)))throw Error('Unsupported G command with coordinates. The current view is unchanged.');
+    continue;
+   }
    if(positionUnknown)throw Error('Moves or coordinate resets after homing are not supported. The current view is unchanged.');
    hadMoves=true;
    for(const axis of ['x','y','z','e','i','j','r','f'])if(command.params[axis]!==undefined){if(!Number.isFinite(command.params[axis]))throw Error('A move contains an invalid coordinate. The current view is unchanged.');command.params[axis]=finite(command.params[axis]*units);}
