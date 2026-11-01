@@ -76,7 +76,9 @@ export function mount(host) {
   }
   async function browse(){
     if(busy||!valid())return;
-    try{const selected=await host.storage.pickFile({extensions:['.gcode','.gco','.nc','.ngc','.gc','.g','.tap'],signal:host.signal});if(selected&&valid())await open(selected);}catch(e){tell('Could not choose a file: '+e.message);}
+    busy=true;let selected=null;
+    try{selected=await host.storage.pickFile({extensions:['.gcode','.gco','.nc','.ngc','.gc','.g','.tap'],signal:host.signal});}catch(e){tell('Could not choose a file: '+e.message);}finally{busy=false;}
+    if(selected&&valid())await open(selected);
   }
   travel.addEventListener('change',()=>{if(preview&&valid()){preview.renderTravel=travel.checked;preview.render();}});
   const location=document.createElement('details'),summary=make('summary','','File path'),pathBar=make('div','gcode-bar');

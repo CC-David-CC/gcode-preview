@@ -2,6 +2,10 @@
 
 Use **Try example** to view a small example, or **Open from My files** to choose a `.gcode`, `.gco`, `.nc`, `.ngc`, `.gc`, `.g`, or `.tap` file. To bring a file from your computer, upload it in Files first. Files can also open files with its existing G-code associations directly in the viewer; select the additional filename extensions inside G-code Preview. Drag to rotate and scroll or pinch to zoom. The non-extruding moves switch can reveal travel paths, including movement in many CNC files.
 
+Only one file chooser can be open per viewer. Cancelling it keeps the current
+preview, and closing the window invalidates a pending choice. The viewer does
+not modify or save the selected G-code file.
+
 When a file in My files changes, is removed, or develops a conflict, the viewer displays a separate notice while keeping the current preview. **Reload** first checks the server and then opens the current copy; an unavailable server, conflicting file, or invalid toolpath leaves the existing view open. The example has no saved file to reload.
 
 The visualization runs in the visitor's browser using `gcode-preview` and WebGL. It does not edit or save G-code or connect to a machine. The fixed 220 × 220 × 250 mm grid is illustrative, not a detected printer profile. This is not a complete printer or CNC simulator, a machine compatibility check, or a safety guarantee. The underlying library is primarily designed for 3D-printing G-code and may omit or interpret commands differently from a particular controller. Verify toolpaths and machine settings with appropriate tools before running hardware.
