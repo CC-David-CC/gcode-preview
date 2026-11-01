@@ -131,3 +131,14 @@ ordinary printer files contain `G29`; those files cannot be previewed here until
 that behavior is supported. See Marlin's [bed leveling](https://marlinfw.org/docs/gcode/G029.html)
 and [single Z probe](https://marlinfw.org/docs/gcode/G030.html) documentation.
 This does not detect every machine-specific operation or validate a toolpath.
+
+A local Kiri:Moto cube export with a configured `G29` startup command illustrates
+why removing that command is not yet a safe nominal mode: the generated file
+uses `G90` and `M82`, then an E-only move, a Z-only move, and an X/Y move. The
+viewer cannot know the start of those movements after probing, and the renderer
+currently joins every move to its prior position. Firmware probing can also
+change logical coordinates and run a configured end script. A future opt-in
+mode needs a clearly stated firmware-state assumption, per-axis and extrusion
+unknown-state tracking, and a way to omit unknown transitions before it can
+show independently established commanded paths. The configured real Kiri export
+and current refusal are covered by `tests/kiri-g29-export-review.test.mjs`.
