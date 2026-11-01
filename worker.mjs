@@ -34,6 +34,9 @@ self.onmessage=({data})=>{
    // parameters. Saved slots can be machine state or be changed in the file;
    // silently skipping a restore makes subsequent paths start at the wrong spot.
    if(/^g0*(?:60|61)$/.test(op))throw Error('Saved-position commands (G60/G61) are not supported. The current view is unchanged.');
+   // These firmware routines can move the probe or alter the Z compensation
+   // applied to later paths, even when no coordinates appear in the command.
+   if(/^g0*(?:29|30)$/.test(op))throw Error('Bed probing and leveling (G29/G30) are not supported. The current view is unchanged.');
    // Firmware-controlled parking/cleaning moves use machine-specific stored
    // positions. Skipping them can omit motion and leave later XYZ positions
    // wrong, even when the command carries no explicit coordinates.

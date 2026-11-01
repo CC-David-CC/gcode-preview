@@ -123,3 +123,11 @@ can also restore one with `Q`. This viewer does not track those slots; it keeps
 the previous preview instead of drawing subsequent moves from a wrong position.
 It conservatively rejects G60 reporting and storing operations as well. Other
 controller-specific behavior and stored machine state remain unmodeled.
+
+Bed leveling and probing commands `G29` and `G30` are rejected, including
+parameterless commands, because this viewer cannot model their machine-specific
+movement or leveling compensation. The previous preview stays visible. Many
+ordinary printer files contain `G29`; those files cannot be previewed here until
+that behavior is supported. See Marlin's [bed leveling](https://marlinfw.org/docs/gcode/G029.html)
+and [single Z probe](https://marlinfw.org/docs/gcode/G030.html) documentation.
+This does not detect every machine-specific operation or validate a toolpath.
