@@ -1,6 +1,6 @@
 # G-code Preview
 
-Use **Try example** to view a small example, or **Open from My files** to choose a `.gcode`, `.gco`, or `.nc` file. To bring a file from your computer, upload it in Files first. Files can also open a supported file directly in the viewer. Drag to rotate and scroll or pinch to zoom. The non-extruding moves switch can reveal travel paths, including movement in many CNC files.
+Use **Try example** to view a small example, or **Open from My files** to choose a `.gcode`, `.gco`, `.nc`, `.ngc`, `.gc`, `.g`, or `.tap` file. To bring a file from your computer, upload it in Files first. Files can also open files with its existing G-code associations directly in the viewer; select the additional filename extensions inside G-code Preview. Drag to rotate and scroll or pinch to zoom. The non-extruding moves switch can reveal travel paths, including movement in many CNC files.
 
 When a file in My files changes, is removed, or develops a conflict, the viewer displays a separate notice while keeping the current preview. **Reload** first checks the server and then opens the current copy; an unavailable server, conflicting file, or invalid toolpath leaves the existing view open. The example has no saved file to reload.
 
@@ -62,3 +62,10 @@ rejected rather than partially interpreted. This is not a comprehensive
 G-code syntax or machine-safety check.
 
 Motion after M2 or M30 is rejected as ambiguous. For example, [LinuxCNC](https://www.linuxcnc.org/docs/html/gcode/m-code.html) treats these as program-end commands, while [Marlin](https://marlinfw.org/docs/gcode/) uses M30 differently. The viewer does not select or validate a controller dialect.
+
+The picker also accepts `.g`, `.gc`, `.ngc` and `.tap` names. These are
+filename conventions, not controller detection: the existing conservative
+parser still rejects unsupported commands and keeps the previous preview. Local
+desktop and emulated-phone account tests cover those names, uppercase `.NGC`,
+a rejected coordinate-system command, and fresh-session reopening. Physical
+touch, other dialects, and machine execution are unverified.

@@ -61,7 +61,7 @@ export function mount(host) {
     if(busy||!valid())return;busy=true;const token=++operation;
     try{
       const c=await mirrorFileContext(),p=c.path(selected||path.value);
-      if(!/\.(?:gcode|gco|nc)$/i.test(p))throw Error('Choose a .gcode, .gco, or .nc file from My files.');
+      if(!/\.(?:gcode|gco|nc|ngc|gc|g|tap)$/i.test(p))throw Error('Choose a G-code file (.gcode, .gco, .nc, .ngc, .gc, .g or .tap) from My files.');
       const f=await c.files.read(p);
       if(f.status==='conflict')throw Error('Resolve the file conflict in Files first.');
       if(f.data.length>128*1024*1024)throw Error('G-code files are limited to 128 MiB.');
@@ -76,7 +76,7 @@ export function mount(host) {
   }
   async function browse(){
     if(busy||!valid())return;
-    try{const selected=await host.storage.pickFile({extensions:['.gcode','.gco','.nc'],signal:host.signal});if(selected&&valid())await open(selected);}catch(e){tell('Could not choose a file: '+e.message);}
+    try{const selected=await host.storage.pickFile({extensions:['.gcode','.gco','.nc','.ngc','.gc','.g','.tap'],signal:host.signal});if(selected&&valid())await open(selected);}catch(e){tell('Could not choose a file: '+e.message);}
   }
   travel.addEventListener('change',()=>{if(preview&&valid()){preview.renderTravel=travel.checked;preview.render();}});
   const location=document.createElement('details'),summary=make('summary','','File path'),pathBar=make('div','gcode-bar');
