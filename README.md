@@ -167,3 +167,9 @@ separately and does not report those counts. If opening another file fails,
 inspection still describes the earlier visible preview. This is a visual
 approximation, not machine simulation or safety validation, and is not a remote
 agent interface.
+
+The viewer pauses its rendering loop while the tab is hidden, the window is
+minimized or rolled up, or its workspace is not visible. It resumes when the
+window returns. Closing or replacing a preview disposes its renderer and releases
+its WebGL context; other preview windows retain their own contexts and state.
+The application remains read-only and does not validate a machine or job.

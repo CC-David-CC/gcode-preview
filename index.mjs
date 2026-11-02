@@ -1,6 +1,7 @@
 import * as Preview from 'gcode-preview';
 import {createNominalPanel} from './experimental/nominal-panel.mjs';
 import {installNominalGeometry} from './experimental/nominal-renderer.mjs';
+import {watchPreviewVisibility,releasePreview} from './preview-lifecycle.mjs';
 import './style.css';
 
 const EXAMPLE = `; Example only: a small square on a 3D printer
@@ -30,7 +31,7 @@ export function mount(host) {
   intro.textContent='Blue: estimated extrusion. Orange: travel or non-extruding. Assumes Marlin-style extrusion positioning. Visual preview only; not a machine or safety check.';
   limitsText.textContent='This viewer does not connect to a printer or CNC machine. The 220 × 220 × 250 mm grid is illustrative, not a printer profile. The preview starts at zero with millimeter units unless the file changes them; stored machine offsets and homing movement are not modeled. Extrusion mode follows Marlin: G90/G91 set XYZ and E modes and clear M82/M83 overrides; M82/M83 override E until the next G90/G91. Klipper and other firmware can differ. Turn on travel to see paths in CNC files without extrusion commands. Other controller behavior may differ.';limits.append(limitsSummary,limitsText);
   status.setAttribute('role','status');
-  let previewInfo=null,disposed=false,preview=null,canvas=null,observer,busy=false,operation=0,parseWorker=null,cancelParse=null,currentPath=null,unsubscribe=()=>{},watchRevision=0,checkRevision=0;
+  let previewInfo=null,disposed=false,preview=null,canvas=null,visibility,busy=false,operation=0,parseWorker=null,cancelParse=null,currentPath=null,unsubscribe=()=>{},watchRevision=0,checkRevision=0;
   const valid=()=>!disposed&&!host.signal.aborted&&body.isConnected&&owner===signedInSubject();
   const tell=t=>{if(valid())status.textContent=t;};
   function clearNominalOffer(){nominalPanel?.dispose();nominalPanel=null;nominalOffer.replaceChildren();}
@@ -60,11 +61,11 @@ export function mount(host) {
       next=Preview.init({canvas:candidate,renderExtrusion:true,renderTravel:travel.checked,buildVolume:{x:220,y:220,z:250},extrusionColor:'#5575df',travelColor:'#d16b35'});
       next.parser.preamble=parsed.preamble;next.parser.layers=parsed.layers;next.parser.metadata=parsed.metadata;next.render();next.resize();
       if(!valid()||token!==operation)throw Error('Window closed.');
-      const previous=preview,old=canvas;preview=next;canvas=candidate;next=null;candidate.classList.remove('gcode-candidate');previous?.dispose();old?.remove();
+      const previous=preview,old=canvas;preview=next;canvas=candidate;next=null;candidate.classList.remove('gcode-candidate');releasePreview(previous);old?.remove();visibility.update();
       nominalWarning.hidden=true;nominalWarning.textContent='';
       previewInfo={source,kind:'preview',layers:parsed.layers.length,commands:(parsed.preamble?.commands?.length||0)+parsed.layers.reduce((n,layer)=>n+(layer.commands?.length||0),0)};sourceLabel.textContent='Showing: '+source;sourceLabel.title=source;
       tell(source+' loaded. Grid is illustrative; drag to rotate, pinch or scroll to zoom.');
-    }catch(e){next?.dispose();candidate.remove();throw e;}
+    }catch(e){releasePreview(next);candidate.remove();throw e;}
   }
 
   async function open(selected,{restore=false}={}){
@@ -98,12 +99,12 @@ export function mount(host) {
           next=Preview.init({canvas:candidate,renderExtrusion:true,renderTravel:travel.checked,buildVolume:{x:220,y:220,z:250},extrusionColor:'#5575df',travelColor:'#d16b35'});
           installNominalGeometry(next,result);next.render();next.resize();
           if(!valid()||!c.valid()||token!==operation)throw Error('Window closed.');
-          const previous=preview,old=canvas;preview=next;canvas=candidate;next=null;candidate.classList.remove('gcode-candidate');previous?.dispose();old?.remove();
+          const previous=preview,old=canvas;preview=next;canvas=candidate;next=null;candidate.classList.remove('gcode-candidate');releasePreview(previous);old?.remove();visibility.update();
           previewInfo={source:p,kind:'hypothetical',layers:null,commands:null};sourceLabel.textContent='Showing hypothetical path: '+p;sourceLabel.title=p;
           nominalWarning.textContent=result.warning+' Blue: estimated extrusion. Orange: travel. Magenta: unknown extrusion.';nominalWarning.hidden=false;
           path.value=p;w.launchContext=Object.freeze({version:1,storage:'mirror',path:p,owner});watchFile(c,p,chosen);
           tell('Hypothetical path loaded. Unknown transitions are omitted.');
-        }catch(error){next?.dispose();candidate.remove();throw error;}
+        }catch(error){releasePreview(next);candidate.remove();throw error;}
       }});
     nominalOffer.replaceChildren(nominalPanel.element);
   }
@@ -131,7 +132,7 @@ export function mount(host) {
     const inspect=host.commands.register({id:'inspect',description:'Inspect the currently displayed G-code preview and its limitations.',parameters:{type:'object',additionalProperties:false}},args=>{ready();argsFor(args,[]);return {...previewInfo,path:currentPath,showTravel:travel.checked,fileNotice:notice.hidden?'':notice.textContent,hypotheticalNotice:nominalWarning.hidden?'':nominalWarning.textContent,note:'Visual approximation only. It is not a machine simulation or safety check.'};});host.onDispose(inspect);
     const setTravel=host.commands.register({id:'set-travel',description:'Show or hide travel paths in the current preview.',parameters:{type:'object',required:['show'],properties:{show:{type:'boolean'}},additionalProperties:false}},args=>{ready();argsFor(args,['show']);if(typeof args.show!=='boolean')throw Error('Provide a boolean show value.');travel.checked=args.show;travel.dispatchEvent(new Event('change'));return {showTravel:travel.checked};});host.onDispose(setTravel);
   }
-  observer=new ResizeObserver(()=>{if(preview&&valid())preview.resize();});observer.observe(stage);
+  visibility=watchPreviewVisibility(stage,()=>preview,valid);
   if(w.launchContext?.storage==='mirror'&&w.launchContext.owner===owner)queueMicrotask(()=>open(w.launchContext.path,{restore:true}));
-  return {element:body,dispose(){if(disposed)return;disposed=true;operation++;clearNominalOffer();clearWatch();cancelParse?.();parseWorker?.terminate();observer.disconnect();preview?.dispose();canvas?.remove();}};
+  return {element:body,dispose(){if(disposed)return;disposed=true;operation++;clearNominalOffer();clearWatch();cancelParse?.();parseWorker?.terminate();visibility.dispose();releasePreview(preview);canvas?.remove();}};
 }
