@@ -53,14 +53,14 @@ export function mount(host) {
       try{worker.postMessage({bytes},[bytes.buffer]);}catch(error){finish(error);}
     });
   }
-  async function show(bytes,source,token){
-    tell('Parsing '+source+'…');const parsed=await parse(bytes,token);if(!valid()||token!==operation)return;
+  async function show(bytes,source,token,isCurrent=()=>true){
+    tell('Parsing '+source+'…');const parsed=await parse(bytes,token);if(!valid()||token!==operation)return;if(!isCurrent())throw Error('File session changed. Open the file again.');
     const candidate=document.createElement('canvas');candidate.className='gcode-candidate';candidate.setAttribute('aria-label','3D G-code preview');stage.append(candidate);
     let next;
     try{
       next=Preview.init({canvas:candidate,renderExtrusion:true,renderTravel:travel.checked,buildVolume:{x:220,y:220,z:250},extrusionColor:'#5575df',travelColor:'#d16b35'});
       next.parser.preamble=parsed.preamble;next.parser.layers=parsed.layers;next.parser.metadata=parsed.metadata;next.render();next.resize();
-      if(!valid()||token!==operation)throw Error('Window closed.');
+      if(!valid()||token!==operation||!isCurrent())throw Error('File session changed or window closed. Open the file again.');
       const previous=preview,old=canvas;preview=next;canvas=candidate;next=null;candidate.classList.remove('gcode-candidate');releasePreview(previous);old?.remove();visibility.update();
       nominalWarning.hidden=true;nominalWarning.textContent='';
       previewInfo={source,kind:'preview',layers:parsed.layers.length,commands:(parsed.preamble?.commands?.length||0)+parsed.layers.reduce((n,layer)=>n+(layer.commands?.length||0),0)};sourceLabel.textContent='Showing: '+source;sourceLabel.title=source;
@@ -78,7 +78,7 @@ export function mount(host) {
       if(f.status==='conflict'){readFailed=true;throw Error('Resolve the file conflict in Files first.');}
       if(f.data.length>128*1024*1024)throw Error('G-code files are limited to 128 MiB.');
       if(!valid()||!c.valid()||token!==operation)return;
-      await show(f.data,p,token);if(valid()&&c.valid()&&token===operation){path.value=p;w.launchContext=Object.freeze({version:1,storage:'mirror',path:p,owner});watchFile(c,p,f);}
+      await show(f.data,p,token,()=>c.valid());if(valid()&&c.valid()&&token===operation){path.value=p;w.launchContext=Object.freeze({version:1,storage:'mirror',path:p,owner});watchFile(c,p,f);}
     }catch(e){if(restore&&readFailed&&target&&valid()&&token===operation){clearWatch();currentPath=target;reloadButton.disabled=false;notice.textContent='The saved file could not be read. Select Reload to retry.';notice.hidden=false;}
       if(valid()&&token===operation&&target&&selectedFile&&selectedContext&&/Bed probing and leveling \(G29\/G30\)/.test(e.message))offerNominal(selectedContext,target,selectedFile,token);
       tell('Could not preview G-code: '+e.message);}finally{busy=false;}
