@@ -124,21 +124,35 @@ the previous preview instead of drawing subsequent moves from a wrong position.
 It conservatively rejects G60 reporting and storing operations as well. Other
 controller-specific behavior and stored machine state remain unmodeled.
 
-Bed leveling and probing commands `G29` and `G30` are rejected, including
-parameterless commands, because this viewer cannot model their machine-specific
-movement or leveling compensation. The previous preview stays visible. Many
-ordinary printer files contain `G29`; those files cannot be previewed here until
-that behavior is supported. See Marlin's [bed leveling](https://marlinfw.org/docs/gcode/G029.html)
+Bed leveling and probing commands `G29` and `G30` are refused by the normal
+preview, including parameterless commands, because machine-specific movement
+and compensation cannot be inferred from the file. The previous preview stays
+visible. You can explicitly choose **Analyze hypothetical path** for a narrow
+subset of files up to 8 MiB. Confirmation states the assumptions: millimeters,
+absolute XYZ and E, tool 0, zero offsets, and no probe end script changes. The
+preview omits probing and transitions from unknown positions; blue indicates
+estimated extrusion, orange travel, and magenta unknown extrusion. It is a
+hypothetical commanded path, not a physical path or machine-safety check. The
+warning stays visible, changes to the locally observed file version prevent the
+pending analysis from replacing the view, and opening the file again requires
+confirmation again. The mode rejects arcs, macros, XYZ resets, other tools,
+multiple probes, unknown commands and motion after post-probe homing, among
+other unsupported cases. See Marlin's [bed leveling](https://marlinfw.org/docs/gcode/G029.html)
 and [single Z probe](https://marlinfw.org/docs/gcode/G030.html) documentation.
 This does not detect every machine-specific operation or validate a toolpath.
 
 A local Kiri:Moto cube export with a configured `G29` startup command illustrates
-why removing that command is not yet a safe nominal mode: the generated file
+why simply removing that command is not safe: the generated file
 uses `G90` and `M82`, then an E-only move, a Z-only move, and an X/Y move. The
-viewer cannot know the start of those movements after probing, and the renderer
-currently joins every move to its prior position. Firmware probing can also
-change logical coordinates and run a configured end script. A future opt-in
-mode needs a clearly stated firmware-state assumption, per-axis and extrusion
-unknown-state tracking, and a way to omit unknown transitions before it can
-show independently established commanded paths. The configured real Kiri export
-and current refusal are covered by `tests/kiri-g29-export-review.test.mjs`.
+viewer cannot know the start of those movements after probing. The hypothetical
+mode omits those transitions and draws independent line pairs; firmware probing
+can still change logical coordinates and run a configured end script. A local
+test covers the configured Kiri export, and the standard worker still refuses
+the probing command by default. Physical-phone and printer tests remain undone.
+
+The normal parser has a two-minute worker deadline. Hypothetical analysis has a
+separate two-minute deadline for each file read, worker run, and final local
+version check. The existing preview remains visible on timeout; open the file
+again to retry. You can also cancel either operation while it is running. These
+deadlines do not bound synchronous rendering or an unresponsive browser event
+loop, and they do not explain or fix every cause of a slow parse.

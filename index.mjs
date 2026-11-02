@@ -1,4 +1,6 @@
 import * as Preview from 'gcode-preview';
+import {createNominalPanel} from './experimental/nominal-panel.mjs';
+import {installNominalGeometry} from './experimental/nominal-renderer.mjs';
 import './style.css';
 
 const EXAMPLE = `; Example only: a small square on a 3D printer
@@ -21,6 +23,8 @@ export function mount(host) {
   const path=appInput('G-code file path',w.launchContext?.path||'/'),stage=make('div','gcode-stage'),sourceLabel=make('div','gcode-source','No toolpath open'),status=make('div','app-status');
   sourceLabel.setAttribute('aria-live','polite');stage.append(sourceLabel);
   const notice=make('p','gcode-file-notice');notice.hidden=true;notice.setAttribute('role','status');
+  const nominalWarning=make('p','gcode-file-notice');nominalWarning.hidden=true;nominalWarning.setAttribute('role','status');
+  const nominalOffer=make('div','gcode-nominal-offer');let nominalPanel=null;
   const travel=document.createElement('input');travel.type='checkbox';travel.checked=true;
   const travelLabel=make('label','gcode-travel');travelLabel.append(travel,document.createTextNode(' Show travel (orange)'));
   intro.textContent='Blue: estimated extrusion. Orange: travel or non-extruding. Assumes Marlin-style extrusion positioning. Visual preview only; not a machine or safety check.';
@@ -29,6 +33,7 @@ export function mount(host) {
   let disposed=false,preview=null,canvas=null,observer,busy=false,operation=0,parseWorker=null,cancelParse=null,currentPath=null,unsubscribe=()=>{},watchRevision=0,checkRevision=0;
   const valid=()=>!disposed&&!host.signal.aborted&&body.isConnected&&owner===signedInSubject();
   const tell=t=>{if(valid())status.textContent=t;};
+  function clearNominalOffer(){nominalPanel?.dispose();nominalPanel=null;nominalOffer.replaceChildren();}
   function clearWatch(){watchRevision++;checkRevision++;unsubscribe();unsubscribe=()=>{};currentPath=null;notice.textContent='';notice.hidden=true;reloadButton.disabled=true;}
   function watchFile(c,p,file){
     clearWatch();currentPath=p;reloadButton.disabled=false;const watch=watchRevision;
@@ -37,10 +42,12 @@ export function mount(host) {
   }
   function parse(bytes,token){
     return new Promise((resolve,reject)=>{
-      const worker=new Worker(new URL('./workers/parse.mjs',import.meta.url),{type:'module'});parseWorker=worker;cancelButton.disabled=false;let done=false;
-      const finish=(error,value)=>{if(done)return;done=true;worker.terminate();if(parseWorker===worker){parseWorker=null;cancelParse=null;cancelButton.disabled=true;}error?reject(error):resolve(value);};
+      const worker=new Worker(new URL('./workers/parse.mjs',import.meta.url),{type:'module'});parseWorker=worker;cancelButton.disabled=false;let done=false,timer;
+      const finish=(error,value)=>{if(done)return;done=true;clearTimeout(timer);worker.terminate();if(parseWorker===worker){parseWorker=null;cancelParse=null;cancelButton.disabled=true;}error?reject(error):resolve(value);};
+      timer=setTimeout(()=>finish(new Error('Parsing timed out. Try opening the file again.')),120000);
       cancelParse=()=>finish(new Error('Preview cancelled.'));
       worker.onerror=()=>finish(new Error('The G-code parser could not finish. The file may be too large for this device.'));
+      worker.onmessageerror=()=>finish(new Error('The G-code parser response could not be read. Try opening the file again.'));
       worker.onmessage=({data})=>{if(token!==operation||!valid())return finish(new Error('Preview cancelled.'));if(data.error)return finish(new Error(data.error));finish(null,data);};
       try{worker.postMessage({bytes},[bytes.buffer]);}catch(error){finish(error);}
     });
@@ -54,22 +61,51 @@ export function mount(host) {
       next.parser.preamble=parsed.preamble;next.parser.layers=parsed.layers;next.parser.metadata=parsed.metadata;next.render();next.resize();
       if(!valid()||token!==operation)throw Error('Window closed.');
       const previous=preview,old=canvas;preview=next;canvas=candidate;next=null;candidate.classList.remove('gcode-candidate');previous?.dispose();old?.remove();
+      nominalWarning.hidden=true;nominalWarning.textContent='';
       sourceLabel.textContent='Showing: '+source;sourceLabel.title=source;
       tell(source+' loaded. Grid is illustrative; drag to rotate, pinch or scroll to zoom.');
     }catch(e){next?.dispose();candidate.remove();throw e;}
   }
 
   async function open(selected,{restore=false}={}){
-    if(busy||!valid())return;busy=true;const token=++operation;let target=null,readFailed=false;
+    if(busy||!valid())return;clearNominalOffer();busy=true;const token=++operation;let target=null,readFailed=false,selectedFile=null,selectedContext=null;
     try{
       const c=await mirrorFileContext(),p=c.path(selected||path.value);target=p;
       if(!/\.(?:gcode|gco|nc|ngc|gc|g|tap)$/i.test(p))throw Error('Choose a G-code file (.gcode, .gco, .nc, .ngc, .gc, .g or .tap) from My files.');
       let f;try{f=await c.files.read(p);}catch(e){readFailed=true;throw e;}
+      selectedFile=f;selectedContext=c;
       if(f.status==='conflict'){readFailed=true;throw Error('Resolve the file conflict in Files first.');}
       if(f.data.length>128*1024*1024)throw Error('G-code files are limited to 128 MiB.');
       if(!valid()||!c.valid()||token!==operation)return;
       await show(f.data,p,token);if(valid()&&c.valid()&&token===operation){path.value=p;w.launchContext=Object.freeze({version:1,storage:'mirror',path:p,owner});watchFile(c,p,f);}
-    }catch(e){if(restore&&readFailed&&target&&valid()&&token===operation){clearWatch();currentPath=target;reloadButton.disabled=false;notice.textContent='The saved file could not be read. Select Reload to retry.';notice.hidden=false;}tell('Could not preview G-code: '+e.message);}finally{busy=false;}
+    }catch(e){if(restore&&readFailed&&target&&valid()&&token===operation){clearWatch();currentPath=target;reloadButton.disabled=false;notice.textContent='The saved file could not be read. Select Reload to retry.';notice.hidden=false;}
+      if(valid()&&token===operation&&target&&selectedFile&&selectedContext&&/Bed probing and leveling \(G29\/G30\)/.test(e.message))offerNominal(selectedContext,target,selectedFile,token);
+      tell('Could not preview G-code: '+e.message);}finally{busy=false;}
+  }
+  function offerNominal(c,p,original,token){
+    // Consent is tied to this exact snapshot. Re-read before analysis and
+    // compare again before committing, so stale bytes cannot replace a view.
+    if(!original.version)return;const same=f=>f.status!=='conflict'&&f.version===original.version&&(!original.sha256||f.sha256===original.sha256);
+    let chosen=null;
+    nominalPanel=createNominalPanel({signal:host.signal,workerURL:new URL('./workers/nominal.mjs',import.meta.url),
+      confirm:(message,{signal})=>host.ui.confirm(message+' The experimental limit is 8 MiB. Continue only to see this hypothetical commanded path.',{title:'Hypothetical path assumptions',confirmLabel:'Analyze hypothetical path',cancelLabel:'Cancel',signal}),
+      getBytes:async()=>{const now=await c.files.read(p);if(!valid()||!c.valid()||token!==operation||!same(now))throw Error('The file changed. Open it again before analyzing.');chosen=now;return now.data;},
+      prepareGeometry:async()=>{const now=await c.files.stat(p);if(!valid()||!c.valid()||token!==operation||!same(now))throw Error('The file changed. Open it again before analyzing.');},
+      onGeometry:result=>{
+        if(!valid()||!c.valid()||token!==operation||!chosen)throw Error('The file is no longer available.');
+        const candidate=document.createElement('canvas');candidate.className='gcode-candidate';candidate.setAttribute('aria-label','Hypothetical 3D G-code preview');stage.append(candidate);let next;
+        try{
+          next=Preview.init({canvas:candidate,renderExtrusion:true,renderTravel:travel.checked,buildVolume:{x:220,y:220,z:250},extrusionColor:'#5575df',travelColor:'#d16b35'});
+          installNominalGeometry(next,result);next.render();next.resize();
+          if(!valid()||!c.valid()||token!==operation)throw Error('Window closed.');
+          const previous=preview,old=canvas;preview=next;canvas=candidate;next=null;candidate.classList.remove('gcode-candidate');previous?.dispose();old?.remove();
+          sourceLabel.textContent='Showing hypothetical path: '+p;sourceLabel.title=p;
+          nominalWarning.textContent=result.warning+' Blue: estimated extrusion. Orange: travel. Magenta: unknown extrusion.';nominalWarning.hidden=false;
+          path.value=p;w.launchContext=Object.freeze({version:1,storage:'mirror',path:p,owner});watchFile(c,p,chosen);
+          tell('Hypothetical path loaded. Unknown transitions are omitted.');
+        }catch(error){next?.dispose();candidate.remove();throw error;}
+      }});
+    nominalOffer.replaceChildren(nominalPanel.element);
   }
   async function reload(){
     if(busy||!valid()||!currentPath)return;const target=currentPath;busy=true;let ready=false;
@@ -87,9 +123,9 @@ export function mount(host) {
   pathBar.append(path,textButton('Open path',()=>open()));location.append(summary,pathBar);
   const cancelButton=textButton('Cancel parsing',()=>cancelParse?.());cancelButton.disabled=true;
   const reloadButton=textButton('Reload',reload);reloadButton.disabled=true;
-  bar.append(textButton('Open from My files',browse),reloadButton,cancelButton,textButton('Try example',async()=>{if(busy||!valid())return;busy=true;const token=++operation;try{await show(new TextEncoder().encode(EXAMPLE),'Example',token);if(valid()&&token===operation){clearWatch();w.launchContext=null;}}catch(e){tell('Could not preview example: '+e.message);}finally{busy=false;}}),textButton('Files',()=>desktop.launch('files')),travelLabel);
-  body.append(intro,limits,bar,location,notice,stage,status);tell('Open a file from My files, or try the example. Upload from your computer in Files.');
+  bar.append(textButton('Open from My files',browse),reloadButton,cancelButton,textButton('Try example',async()=>{if(busy||!valid())return;clearNominalOffer();busy=true;const token=++operation;try{await show(new TextEncoder().encode(EXAMPLE),'Example',token);if(valid()&&token===operation){clearWatch();w.launchContext=null;}}catch(e){tell('Could not preview example: '+e.message);}finally{busy=false;}}),textButton('Files',()=>desktop.launch('files')),travelLabel);
+  body.append(intro,limits,bar,location,notice,nominalOffer,nominalWarning,stage,status);tell('Open a file from My files, or try the example. Upload from your computer in Files.');
   observer=new ResizeObserver(()=>{if(preview&&valid())preview.resize();});observer.observe(stage);
   if(w.launchContext?.storage==='mirror'&&w.launchContext.owner===owner)queueMicrotask(()=>open(w.launchContext.path,{restore:true}));
-  return {element:body,dispose(){if(disposed)return;disposed=true;operation++;clearWatch();cancelParse?.();parseWorker?.terminate();observer.disconnect();preview?.dispose();canvas?.remove();}};
+  return {element:body,dispose(){if(disposed)return;disposed=true;operation++;clearNominalOffer();clearWatch();cancelParse?.();parseWorker?.terminate();observer.disconnect();preview?.dispose();canvas?.remove();}};
 }

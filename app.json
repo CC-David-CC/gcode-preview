@@ -1,6 +1,7 @@
 {
   "workers": {
-    "parse": "worker.mjs"
+    "parse": "worker.mjs",
+    "nominal": "experimental/nominal-worker.mjs"
   },
   "patches": [
     {

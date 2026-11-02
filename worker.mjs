@@ -12,6 +12,9 @@ self.onmessage=({data})=>{
    if(/^[ \t]*N\d+(?=\s|[A-Z]|$)/i.test(line))throw Error('Numbered commands are not supported. The current view is unchanged.');
    if(/^[ \t]*G0?92\.[123](?=[ \tXYZEFIJR;]|$)/i.test(line))throw Error('Coordinate reset modes (G92.1–G92.3) are not supported. The current view is unchanged.');
    if(/^[ \t]*G0?9[01]\.1(?=[ \tXYZEFIJR;]|$)/i.test(line))throw Error('Arc center mode changes (G90.1/G91.1) are not supported. The current view is unchanged.');
+   // Refuse a probing command before constructing the full upstream command
+   // graph. Slicer output may contain hundreds of thousands of later moves.
+   if(/^[ \t]*G0*(?:29|30)(?=[ \tA-Z;]|$)/i.test(line))throw Error('Bed probing and leveling (G29/G30) are not supported. The current view is unchanged.');
    // Repeats, macros and subprograms can execute or skip entire blocks. The
    // viewer cannot safely draw them as though every source line ran once.
    if(/(?:^|[^a-z])M\s*0*(?:98|99|808|81[0-9])(?=\s|[A-Z;]|$)/i.test(line.split(';',1)[0])||/^\s*O\s*(?:\d|<)/i.test(line))throw Error('Repeats, macros and subprograms are not supported. The current view is unchanged.');
