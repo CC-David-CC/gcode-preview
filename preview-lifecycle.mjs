@@ -33,5 +33,6 @@ export function releasePreview(preview) {
   if(!preview)return;
   // Three's renderer.dispose() frees GPU resources, but does not itself lose
   // the WebGL context. The window owns this renderer and never reuses it.
-  try{preview.dispose();}finally{preview.renderer?.forceContextLoss?.();}
+  try{preview.dispose();}catch(error){console.warn('Could not fully dispose G-code preview:',error);}
+  try{preview.renderer?.forceContextLoss?.();}catch(error){console.warn('Could not release G-code graphics context:',error);}
 }
