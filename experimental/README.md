@@ -1,7 +1,7 @@
 # Nominal post-probe experiment
 
-This is an experimental opt-in path in the local desktop source; it has not
-been deployed. The ordinary preview continues to reject G29/G30.
+This experimental opt-in path is live in G-code Preview. The ordinary preview
+continues to reject G29/G30.
 `nominalPostProbe` requires the
 exact `ASSUMPTION` identifier. That identifier describes a hypothetical Marlin
 state immediately after a parameterless probe: millimeter units, absolute XYZ
