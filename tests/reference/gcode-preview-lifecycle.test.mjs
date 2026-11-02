@@ -22,5 +22,5 @@ test('replacement viewer and closed/account-invalid windows do not keep looping'
  releasePreview(r.preview);assert.equal(r.counts.dispose,1);assert.equal(r.counts.loss,1);
 });
 test('WebGL context is released even if upstream dispose throws',()=>{
- let lost=false;assert.throws(()=>releasePreview({dispose(){throw Error('dispose failed')},renderer:{forceContextLoss(){lost=true}}}),/dispose failed/);assert.equal(lost,true);
+ let lost=false;const warn=console.warn;console.warn=()=>{};try{assert.doesNotThrow(()=>releasePreview({dispose(){throw Error('dispose failed')},renderer:{forceContextLoss(){lost=true}}}));}finally{console.warn=warn;}assert.equal(lost,true);
 });
