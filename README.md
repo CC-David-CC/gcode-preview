@@ -156,3 +156,14 @@ version check. The existing preview remains visible on timeout; open the file
 again to retry. You can also cancel either operation while it is running. These
 deadlines do not bound synchronous rendering or an unresponsive browser event
 loop, and they do not explain or fix every cause of a slow parse.
+
+## Browser commands
+
+The signed-in desktop's in-page command registry offers `inspect` for the
+currently displayed preview and `set-travel` to show or hide travel lines.
+The normal preview reports the parser's layer and command counts; these are
+not print estimates. An explicitly chosen hypothetical preview is labeled
+separately and does not report those counts. If opening another file fails,
+inspection still describes the earlier visible preview. This is a visual
+approximation, not machine simulation or safety validation, and is not a remote
+agent interface.
