@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';import {normalizeArc,arcSegmentCount} from '../apps/system/gcode-preview/arcs.mjs';
+import assert from 'node:assert/strict';import {normalizeArc,arcSegmentCount} from "../../arcs.mjs";
 const start={x:0,y:0},end={x:10,y:0};
 for(const [cw,r,sign] of [[true,10,-1],[true,-10,1],[false,10,1],[false,-10,-1]]){const p=normalizeArc({x:10,y:0,r},start,end,cw);assert.equal(p.i,5);assert.ok(Math.abs(p.j-sign*Math.sqrt(75))<1e-12);assert.equal('r' in p,false)}
 assert.deepEqual(normalizeArc({i:5,j:0,x:10},start,end,true),{i:5,j:0,x:10});

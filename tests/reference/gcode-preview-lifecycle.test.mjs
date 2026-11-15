@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {watchPreviewVisibility,releasePreview} from '../apps/system/gcode-preview/preview-lifecycle.mjs';
+import {watchPreviewVisibility,releasePreview} from "../../preview-lifecycle.mjs";
 function rig(){
  const handlers=new Map();const doc={hidden:false,addEventListener:(n,f)=>handlers.set(n,f),removeEventListener:(n,f)=>{if(handlers.get(n)===f)handlers.delete(n)}};
  let resize,mutation;class R{constructor(cb){this.cb=cb;resize=this}observe(){}disconnect(){this.closed=true}}class M{constructor(cb){this.cb=cb;mutation=this}observe(win){this.win=win}disconnect(){this.closed=true}}

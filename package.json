@@ -1,1 +1,12 @@
-{"name":"codi-gcode-preview","version":"0.1.0","private":true,"type":"module","dependencies":{"gcode-preview":"2.18.0"}}
+{
+  "name": "codi-gcode-preview",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "gcode-preview": "2.18.0"
+  },
+  "scripts": {
+    "test:reference": "node --test --test-reporter=tap tests/reference/*.test.mjs"
+  }
+}

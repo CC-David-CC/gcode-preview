@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {nominalPostProbe,ASSUMPTION} from '../apps/system/gcode-preview/experimental/nominal-probe.mjs';
+import {nominalPostProbe,ASSUMPTION} from "../../experimental/nominal-probe.mjs";
 const options={assumption:ASSUMPTION};
 assert.throws(()=>nominalPostProbe('G29\nG1 X1'),/assumptions/);
 const input='G28\nG29\nG90\nM82\nG1 E-1.5\nG1 Z0.25\nG1 X10 Y20\nG1 E0\nG1 X30 E1\nG91\nM83\nG1 Y2 E0.2\n';
