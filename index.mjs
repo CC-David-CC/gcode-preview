@@ -53,12 +53,24 @@ export function mount(host) {
       try{worker.postMessage({bytes},[bytes.buffer]);}catch(error){finish(error);}
     });
   }
+  function createPreview(canvas){
+    return Preview.init({
+      canvas,
+      backgroundColor:'#1d232a',
+      disableGradient:true,
+      renderExtrusion:true,
+      renderTravel:travel.checked,
+      buildVolume:{x:220,y:220,z:250},
+      extrusionColor:'#78a4ff',
+      travelColor:'#f0a36a',
+    });
+  }
   async function show(bytes,source,token,isCurrent=()=>true){
     tell('Parsing '+source+'…');const parsed=await parse(bytes,token);if(!valid()||token!==operation)return;if(!isCurrent())throw Error('File session changed. Open the file again.');
     const candidate=document.createElement('canvas');candidate.className='gcode-candidate';candidate.setAttribute('aria-label','3D G-code preview');stage.append(candidate);
     let next;
     try{
-      next=Preview.init({canvas:candidate,renderExtrusion:true,renderTravel:travel.checked,buildVolume:{x:220,y:220,z:250},extrusionColor:'#5575df',travelColor:'#d16b35'});
+      next=createPreview(candidate);
       next.parser.preamble=parsed.preamble;next.parser.layers=parsed.layers;next.parser.metadata=parsed.metadata;next.render();next.resize();
       if(!valid()||token!==operation||!isCurrent())throw Error('File session changed or window closed. Open the file again.');
       const previous=preview,old=canvas;preview=next;canvas=candidate;next=null;candidate.classList.remove('gcode-candidate');releasePreview(previous);old?.remove();visibility.update();
@@ -96,7 +108,7 @@ export function mount(host) {
         if(!valid()||!c.valid()||token!==operation||!chosen)throw Error('The file is no longer available.');
         const candidate=document.createElement('canvas');candidate.className='gcode-candidate';candidate.setAttribute('aria-label','Hypothetical 3D G-code preview');stage.append(candidate);let next;
         try{
-          next=Preview.init({canvas:candidate,renderExtrusion:true,renderTravel:travel.checked,buildVolume:{x:220,y:220,z:250},extrusionColor:'#5575df',travelColor:'#d16b35'});
+          next=createPreview(candidate);
           installNominalGeometry(next,result);next.render();next.resize();
           if(!valid()||!c.valid()||token!==operation)throw Error('Window closed.');
           const previous=preview,old=canvas;preview=next;canvas=candidate;next=null;candidate.classList.remove('gcode-candidate');releasePreview(previous);old?.remove();visibility.update();
@@ -125,7 +137,7 @@ export function mount(host) {
   const cancelButton=textButton('Cancel parsing',()=>cancelParse?.());cancelButton.disabled=true;
   const reloadButton=textButton('Reload',reload);reloadButton.disabled=true;
   bar.append(textButton('Open from My files',browse),reloadButton,cancelButton,textButton('Try example',async()=>{if(busy||!valid())return;clearNominalOffer();busy=true;const token=++operation;try{await show(new TextEncoder().encode(EXAMPLE),'Example',token);if(valid()&&token===operation){clearWatch();w.launchContext=null;}}catch(e){tell('Could not preview example: '+e.message);}finally{busy=false;}}),textButton('Files',()=>desktop.launch('files')),travelLabel);
-  body.append(intro,limits,bar,location,notice,nominalOffer,nominalWarning,stage,status);tell('Open a file from My files, or try the example. Upload from your computer in Files.');
+  body.append(intro,bar,notice,nominalOffer,nominalWarning,stage,status,limits,location);tell('Open a file from My files, or try the example. Upload from your computer in Files.');
   if(host.commands){
     const ready=()=>{if(!valid()||busy||!preview||!previewInfo)throw Error('Open a toolpath and wait for the preview.');};
     const argsFor=(args,keys)=>{if(!args||typeof args!=='object'||Array.isArray(args)||Object.keys(args).some(k=>!keys.includes(k)))throw Error('Invalid command arguments.');};
