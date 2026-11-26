@@ -47,7 +47,13 @@
 }
 
 .gcode-stage canvas.gcode-candidate { opacity: 0; pointer-events: none; }
-.gcode-app .app-status { font-size: 13px; color: var(--desktop-muted, #b9c3cc); line-height: 1.4; }
+.gcode-app .app-status {
+  border-color: var(--desktop-border, #56616c);
+  background: var(--desktop-surface, #252a30);
+  color: var(--desktop-muted, #b9c3cc);
+  font-size: 13px;
+  line-height: 1.4;
+}
 
 .gcode-file-notice {
   margin: 0;

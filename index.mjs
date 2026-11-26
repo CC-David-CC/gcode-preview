@@ -28,7 +28,7 @@ export function mount(host) {
   const nominalOffer=make('div','gcode-nominal-offer');let nominalPanel=null;
   const travel=document.createElement('input');travel.type='checkbox';travel.checked=true;
   const travelLabel=make('label','gcode-travel');travelLabel.append(travel,document.createTextNode(' Show travel (orange)'));
-  intro.textContent='Blue: estimated extrusion. Orange: travel or non-extruding. Assumes Marlin-style extrusion positioning. Visual preview only; not a machine or safety check.';
+  intro.textContent='Blue shows estimated extrusion. Orange shows travel and other moves. Visual preview only.';
   limitsText.textContent='This viewer does not connect to a printer or CNC machine. The 220 × 220 × 250 mm grid is illustrative, not a printer profile. The preview starts at zero with millimeter units unless the file changes them; stored machine offsets and homing movement are not modeled. Extrusion mode follows Marlin: G90/G91 set XYZ and E modes and clear M82/M83 overrides; M82/M83 override E until the next G90/G91. Klipper and other firmware can differ. Turn on travel to see paths in CNC files without extrusion commands. Other controller behavior may differ.';limits.append(limitsSummary,limitsText);
   status.setAttribute('role','status');
   let previewInfo=null,disposed=false,preview=null,canvas=null,visibility,busy=false,operation=0,parseWorker=null,cancelParse=null,currentPath=null,unsubscribe=()=>{},watchRevision=0,checkRevision=0;
