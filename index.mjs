@@ -17,8 +17,8 @@ G1 X10 Y10 E4
 
 export function mount(host) {
   const {w,desktop}=host, {make,textButton,appInput}=host.ui;
-  const {mirrorFileContext,signedInSubject}=host.storage;
-  const owner=w.launchContext?.owner||signedInSubject();
+  const {workspaceMirrorContext,workspaceOwner}=host.storage;
+  const owner=workspaceOwner();
   w.ownerSub=owner;
   const body=make('div','window-content gcode-app'),intro=make('p','gcode-intro'),limits=document.createElement('details'),limitsSummary=make('summary','','Preview limits'),limitsText=make('p','gcode-limits'),bar=make('div','gcode-bar');
   const path=appInput('G-code file path',w.launchContext?.path||'/'),stage=make('div','gcode-stage'),sourceLabel=make('div','gcode-source','No toolpath open'),status=make('div','app-status');
@@ -32,7 +32,10 @@ export function mount(host) {
   limitsText.textContent='This viewer does not connect to a printer or CNC machine. The 220 × 220 × 250 mm grid is illustrative, not a printer profile. The preview starts at zero with millimeter units unless the file changes them; stored machine offsets and homing movement are not modeled. Extrusion mode follows Marlin: G90/G91 set XYZ and E modes and clear M82/M83 overrides; M82/M83 override E until the next G90/G91. Klipper and other firmware can differ. Turn on travel to see paths in CNC files without extrusion commands. Other controller behavior may differ.';limits.append(limitsSummary,limitsText);
   status.setAttribute('role','status');
   let previewInfo=null,disposed=false,preview=null,canvas=null,visibility,busy=false,operation=0,parseWorker=null,cancelParse=null,currentPath=null,unsubscribe=()=>{},watchRevision=0,checkRevision=0;
-  const valid=()=>!disposed&&!host.signal.aborted&&body.isConnected&&owner===signedInSubject();
+  const valid=()=>!disposed&&!host.signal.aborted&&body.isConnected&&owner===workspaceOwner();
+  const bindFile=(context,path)=>{
+    w.launchContext=Object.freeze({version:1,storage:context.storage||'mirror',path,owner});
+  };
   const tell=t=>{if(valid())status.textContent=t;};
   function clearNominalOffer(){nominalPanel?.dispose();nominalPanel=null;nominalOffer.replaceChildren();}
   function clearWatch(){watchRevision++;checkRevision++;unsubscribe();unsubscribe=()=>{};currentPath=null;notice.textContent='';notice.hidden=true;reloadButton.disabled=true;}
@@ -80,17 +83,18 @@ export function mount(host) {
     }catch(e){releasePreview(next);candidate.remove();throw e;}
   }
 
-  async function open(selected,{restore=false}={}){
+  async function open(selected,{restore=false,expectedSHA256}={}){
     if(busy||!valid())return;clearNominalOffer();busy=true;const token=++operation;let target=null,readFailed=false,selectedFile=null,selectedContext=null;
     try{
-      const c=await mirrorFileContext(),p=c.path(selected||path.value);target=p;
+      const c=await workspaceMirrorContext(),p=c.path(selected||path.value);target=p;
       if(!/\.(?:gcode|gco|nc|ngc|gc|g|tap)$/i.test(p))throw Error('Choose a G-code file (.gcode, .gco, .nc, .ngc, .gc, .g or .tap) from My files.');
       let f;try{f=await c.files.read(p);}catch(e){readFailed=true;throw e;}
       selectedFile=f;selectedContext=c;
       if(f.status==='conflict'){readFailed=true;throw Error('Resolve the file conflict in Files first.');}
+      if(expectedSHA256&&f.sha256!==expectedSHA256)throw Error('The selected file changed. Open it again from My files.');
       if(f.data.length>128*1024*1024)throw Error('G-code files are limited to 128 MiB.');
       if(!valid()||!c.valid()||token!==operation)return;
-      await show(f.data,p,token,()=>c.valid());if(valid()&&c.valid()&&token===operation){path.value=p;w.launchContext=Object.freeze({version:1,storage:'mirror',path:p,owner});watchFile(c,p,f);}
+      await show(f.data,p,token,()=>c.valid());if(valid()&&c.valid()&&token===operation){path.value=p;bindFile(c,p);watchFile(c,p,f);}
     }catch(e){if(restore&&readFailed&&target&&valid()&&token===operation){clearWatch();currentPath=target;reloadButton.disabled=false;notice.textContent='The saved file could not be read. Select Reload to retry.';notice.hidden=false;}
       if(valid()&&token===operation&&target&&selectedFile&&selectedContext&&/Bed probing and leveling \(G29\/G30\)/.test(e.message))offerNominal(selectedContext,target,selectedFile,token);
       tell('Could not preview G-code: '+e.message);}finally{busy=false;}
@@ -114,7 +118,7 @@ export function mount(host) {
           const previous=preview,old=canvas;preview=next;canvas=candidate;next=null;candidate.classList.remove('gcode-candidate');releasePreview(previous);old?.remove();visibility.update();
           previewInfo={source:p,kind:'hypothetical',layers:null,commands:null};sourceLabel.textContent='Showing hypothetical path: '+p;sourceLabel.title=p;
           nominalWarning.textContent=result.warning+' Blue: estimated extrusion. Orange: travel. Magenta: unknown extrusion.';nominalWarning.hidden=false;
-          path.value=p;w.launchContext=Object.freeze({version:1,storage:'mirror',path:p,owner});watchFile(c,p,chosen);
+          path.value=p;bindFile(c,p);watchFile(c,p,chosen);
           tell('Hypothetical path loaded. Unknown transitions are omitted.');
         }catch(error){releasePreview(next);candidate.remove();throw error;}
       }});
@@ -122,7 +126,7 @@ export function mount(host) {
   }
   async function reload(){
     if(busy||!valid()||!currentPath)return;const target=currentPath;busy=true;let ready=false;
-    try{tell('Checking the server for updates…');const c=await mirrorFileContext();await c.files.sync();ready=valid()&&c.valid()&&target===currentPath;}catch(e){tell('Could not check the server. The current preview remains open: '+e.message);}finally{busy=false;}
+    try{tell('Checking My files for updates…');const c=await workspaceMirrorContext();await c.files.sync();ready=valid()&&c.valid()&&target===currentPath;}catch(e){tell('Could not check My files. The current preview remains open: '+e.message);}finally{busy=false;}
     if(ready)await open(target);
   }
   async function browse(){
@@ -145,6 +149,9 @@ export function mount(host) {
     const setTravel=host.commands.register({id:'set-travel',description:'Show or hide travel paths in the current preview.',parameters:{type:'object',required:['show'],properties:{show:{type:'boolean'}},additionalProperties:false}},args=>{ready();argsFor(args,['show']);if(typeof args.show!=='boolean')throw Error('Provide a boolean show value.');travel.checked=args.show;travel.dispatchEvent(new Event('change'));return {showTravel:travel.checked};});host.onDispose(setTravel);
   }
   visibility=watchPreviewVisibility(stage,()=>preview,valid);
-  if(w.launchContext?.storage==='mirror'&&w.launchContext.owner===owner)queueMicrotask(()=>open(w.launchContext.path,{restore:true}));
+  const launch=w.launchContext;
+  if(['mirror','temporary'].includes(launch?.storage)&&launch.owner===owner){
+    queueMicrotask(()=>open(launch.path,{restore:true,expectedSHA256:launch.sha256}));
+  }
   return {element:body,dispose(){if(disposed)return;disposed=true;operation++;clearNominalOffer();clearWatch();cancelParse?.();parseWorker?.terminate();visibility.dispose();releasePreview(preview);canvas?.remove();}};
 }
